@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FCFBF8" />
+<title>🏮 おうち居酒屋</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+<style>
+  :root {
+    --bg: #FCFBF8;
+    --surface: #FFFFFF;
+    --ink: #2E2B26;
+    --sub: #8A857A;
+    --faint: #B7B1A4;
+    --line: #ECE7DC;
+    --chipbg: #F1EEE7;
+    --field: #F7F4EF;
+    --coral: #E8654F;
+    --coral-bg: #FBE0DA;
+    --coral-ink: #C0432E;
+    --gold: #EDA51F;
+    --green: #6FA83F;
+    --fav: #F8D96B;
+    --fav-ink: #6E4A0C;
+    --fav-bd: #E9C24E;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    padding-bottom: 100px;
+  }
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bg);
+    text-align: center;
+    padding: 16px 16px 14px;
+    padding-top: max(16px, env(safe-area-inset-top));
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 21px; font-weight: 500; letter-spacing: .03em; }
+  header .sub { font-size: 11px; color: var(--sub); margin-top: 3px; }
+
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+  .section-title { font-size: 12.5px; letter-spacing: .06em; color: var(--sub); margin: 2px 2px 14px; }
+
+  .empty { text-align: center; padding: 56px 20px; color: var(--sub); }
+  .empty .big { font-size: 20px; font-weight: 500; color: var(--ink); margin-bottom: 8px; }
+
+  /* filters */
+  .filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; }
+  .chip {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; background: var(--chipbg);
+    color: var(--sub); font-size: 12.5px; cursor: pointer; user-select: none;
+  }
+  .chip.active { background: var(--ink); color: #fff; }
+  .chip.want-chip.active { background: var(--fav); border-color: var(--fav-bd); color: var(--fav-ink); }
+
+  /* collection grid */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+  .tile { border-radius: 13px; padding: 12px; position: relative; cursor: pointer; }
+  .tile:active { opacity: .9; }
+  .tile-want { position: absolute; top: 10px; right: 10px; z-index: 1; }
+  .tile-ic { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; font-size: 17px; }
+  .tile-name { font-size: 13.5px; font-weight: 500; color: var(--ink); margin-top: 9px; line-height: 1.4; }
+  .tile-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+  .tile-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,.6); }
+  .tile-status i { font-size: 12px; }
+  .want-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.6); color: var(--sub); cursor: pointer; }
+  .want-tag i { font-size: 12px; }
+  .want-tag.on { background: var(--fav); border-color: var(--fav-bd); color: var(--fav-ink); }
+  .want-tag:active { transform: scale(.96); }
+  .st-none { color: #8A857A; }
+  .st-made { color: #3E7D2E; }
+  .st-confident { color: #B5771A; }
+  .tile-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; align-items: center; }
+  .dpill { font-size: 10.5px; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .tile-link { color: var(--sub); font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; }
+  .tile-link:active { opacity: .6; }
+
+  /* FAB */
+  .fab {
+    position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 13px 20px; border-radius: 999px;
+    background: var(--coral); color: #fff; border: none;
+    font-size: 14px; font-weight: 500; letter-spacing: .02em;
+    box-shadow: 0 4px 14px rgba(232,101,79,.4);
+    z-index: 40; cursor: pointer;
+  }
+  .fab:active { transform: scale(.95); }
+
+  /* overlay / sheet */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(40,30,20,.4);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .overlay.hidden { display: none; }
+  .sheet {
+    background: var(--surface); width: 100%; max-width: 460px; max-height: 96vh; overflow-y: auto;
+    border-radius: 16px 16px 0 0; padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+  }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .sheet-head h2 { margin: 0; }
+  .icon-del { background: none; border: none; color: var(--coral-ink); font-size: 20px; cursor: pointer; padding: 4px; display: inline-flex; }
+  .icon-del:active { opacity: .6; }
+  .sheet h2 { font-size: 18px; margin: 0 0 12px; color: var(--ink); }
+  .field { margin-bottom: 9px; }
+  .field label { display: block; font-size: 12px; color: var(--sub); margin-bottom: 4px; }
+  .field-row { display: flex; gap: 12px; align-items: flex-start; }
+  .field-row .col { min-width: 0; }
+  .field-row .col:first-child { flex: 0 1 auto; }
+  .field-row .col:first-child .chip-group { max-width: 240px; }
+  .field-row .col-want { flex: 0 0 auto; }
+  .field input[type=text], .field textarea {
+    width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; color: var(--ink); font-size: 15px; font-family: inherit;
+  }
+  .field textarea { resize: vertical; min-height: 44px; }
+  .field input.field-invalid { border-color: var(--coral); }
+  .field-error { display: none; color: var(--coral-ink); font-size: 12px; margin-top: 6px; }
+  .field-error.show { display: block; }
+
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* icon picker */
+  .icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .icon-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 2px; border-radius: 10px; background: #F5F2EA; cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .icon-opt i { font-size: 18px; }
+  .icon-opt span { font-size: 10.5px; color: var(--sub); white-space: nowrap; }
+  .icon-opt.active { border-color: var(--coral); }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+  .btn {
+    flex: 1; padding: 13px; border-radius: 10px; border: none; font-size: 15px; font-weight: 500; cursor: pointer;
+  }
+  .btn-primary { background: var(--coral); color: #fff; }
+  .btn-secondary { background: var(--chipbg); color: var(--sub); border: 1px solid var(--line); }
+  .btn-danger { background: transparent; color: var(--coral-ink); border: 1px solid rgba(232,101,79,.5); }
+
+  .confirm-sheet { max-width: 420px; }
+  .confirm-msg { font-size: 15px; line-height: 1.7; margin: 6px 2px 20px; color: var(--ink); }
+  .confirm-actions { display: flex; gap: 10px; }
+  .confirm-actions button { flex: 1; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: var(--ink); color: #fff; font-size: 13px; padding: 9px 18px; border-radius: 999px;
+    z-index: 60; opacity: 1; transition: opacity .3s ease;
+  }
+  .toast.hidden { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏮 おうち居酒屋</h1>
+  <div class="sub">おつまみレパートリー</div>
+</header>
+
+<main>
+  <div class="section-title" id="countLabel"></div>
+  <div id="view"></div>
+</main>
+
+<button class="fab" id="fab" onclick="openForm()">＋ レパートリーを追加</button>
+
+<div class="overlay hidden" id="formOverlay">
+  <div class="sheet" id="formSheet"></div>
+</div>
+
+<div class="overlay hidden" id="confirmOverlay">
+  <div class="sheet confirm-sheet" id="confirmSheet"></div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------- データの保存・読み込み ---------- */
+const KEY = "ouchi_izakaya_v1";
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || { snacks: [] }; }
+  catch (e) { return { snacks: [] }; }
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(db)); }
+// 保存を試みる。失敗（localStorageがブロックされている等）してもUIは止めず、正直に知らせる
+function persist() {
+  try { save(); return true; }
+  catch (e) { toast("保存できませんでした。ブラウザの設定をご確認ください"); return false; }
+}
+let db = load();
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+/* ---------- 選択肢の定義 ---------- */
+const DRINKS = {
+  beer:    "ビール",
+  highball:"ハイボール",
+  sake:    "日本酒",
+  shochu:  "焼酎",
+  wine:    "ワイン",
+  gin:     "ジン",
+  cocktail:"カクテル",
+  any:     "何にでも合う",
+};
+// お酒ごとの固定色（タグの背景・文字）
+const DRINK_COLORS = {
+  beer:     { bg: "#FBEBCF", text: "#8A5A12" },
+  highball: { bg: "#D7EDEA", text: "#1F6E63" },
+  sake:     { bg: "#DEE6F5", text: "#274E8A" },
+  shochu:   { bg: "#E3F0CF", text: "#3E6B22" },
+  wine:     { bg: "#ECDCE8", text: "#7A2E63" },
+  gin:      { bg: "#D9EEE3", text: "#2E6B4E" },
+  cocktail: { bg: "#FBDCEA", text: "#9A3866" },
+  any:      { bg: "#ECEAE3", text: "#6A665C" },
+};
+const STATUS = {
+  none:      { label: "作ったことなし" },
+  made:      { label: "作ったことあり" },
+  confident: { label: "出来栄え自信あり" },
+};
+// アイコン候補（Tabler / MIT・商用可）。カテゴリごとにタイル地・アイコンチップの色を持つ
+const ICON_LIST = [
+  { ti: "meat",            label: "肉",     tile: "#FEF4E2", chip: "#F6DBA6", ink: "#8A5A12" },
+  { ti: "fish",            label: "魚",     tile: "#E4F1EE", chip: "#C4E0DA", ink: "#1F6E63" },
+  { ti: "egg",             label: "卵",     tile: "#FBF3D6", chip: "#EBD98E", ink: "#8A6A12" },
+  { ti: "leaf",            label: "野菜",   tile: "#EDF5DD", chip: "#D3E7B4", ink: "#3E6B22" },
+  { ti: "salad",           label: "サラダ", tile: "#E8F3E4", chip: "#CBE6C6", ink: "#3E7D52" },
+  { ti: "flame",           label: "揚げ物", tile: "#FBE9DF", chip: "#F3C9B4", ink: "#A5431F" },
+  { ti: "cheese",          label: "チーズ", tile: "#FBEEC6", chip: "#EED98A", ink: "#7A6410" },
+  { ti: "bread",           label: "主食",   tile: "#F7ECD9", chip: "#E7CFA6", ink: "#8A5A2E" },
+  { ti: "soup",            label: "汁物",   tile: "#F7EAD9", chip: "#E7C9A0", ink: "#8A5227" },
+  { ti: "pepper",          label: "辛味",   tile: "#FBE2DD", chip: "#F3B9AC", ink: "#A5342E" },
+  { ti: "apple",           label: "果物",   tile: "#FBE5E6", chip: "#F3C0C2", ink: "#A53E3E" },
+  { ti: "tools-kitchen-2", label: "その他", tile: "#F3F0E9", chip: "#DDD8CC", ink: "#6A665C" },
+];
+const ICONS = Object.fromEntries(ICON_LIST.map(o => [o.ti, o]));
+const DEFAULT_ICON = "tools-kitchen-2";
+function iconMeta(name) { return ICONS[name] || ICONS[DEFAULT_ICON]; }
+
+/* ---------- 絞り込み ---------- */
+const filters = { status: "all", drink: "all", wantOnly: false };
+
+function matchesFilters(s) {
+  if (filters.status !== "all" && s.status !== filters.status) return false;
+  if (filters.drink !== "all" && !s.drinks.includes(filters.drink) && !s.drinks.includes("any")) return false;
+  if (filters.wantOnly && !s.wantToMake) return false;
+  return true;
+}
+function setStatusFilter(key) { filters.status = key; render(); }
+function setDrinkFilter(key) { filters.drink = key; render(); }
+function toggleWantOnlyFilter() { filters.wantOnly = !filters.wantOnly; render(); }
+
+function chip(active, label, onclick) {
+  return `<div class="chip ${active ? "active" : ""}" onclick="${onclick}">${label}</div>`;
+}
+
+function filterBar() {
+  let html = `<div class="filters">`;
+  html += chip(filters.status === "all", "すべて", `setStatusFilter('all')`);
+  Object.entries(STATUS).forEach(([key, v]) => {
+    html += chip(filters.status === key, v.label, `setStatusFilter('${key}')`);
+  });
+  html += `</div>`;
+
+  html += `<div class="filters">`;
+  html += chip(filters.drink === "all", "お酒:すべて", `setDrinkFilter('all')`);
+  Object.entries(DRINKS).forEach(([key, label]) => {
+    html += chip(filters.drink === key, label, `setDrinkFilter('${key}')`);
+  });
+  html += `</div>`;
+
+  html += `<div class="filters">`;
+  html += `<div class="chip want-chip ${filters.wantOnly ? "active" : ""}" onclick="toggleWantOnlyFilter()">作りたいだけ</div>`;
+  html += `</div>`;
+  return html;
+}
+
+/* ---------- 描画 ---------- */
+const view = document.getElementById("view");
+
+function render() {
+  document.getElementById("countLabel").textContent = `レパートリー ・ ${db.snacks.length}品`;
+
+  if (db.snacks.length === 0) {
+    view.innerHTML = `<div class="empty"><div class="big">空っぽ</div>まだおつまみが登録されていません。<br>右下の ＋ から登録しましょう。</div>`;
+    return;
+  }
+
+  const list = db.snacks.filter(matchesFilters).slice().reverse();
+  let html = filterBar();
+  if (list.length === 0) {
+    html += `<div class="empty"><div class="big">該当なし</div>条件に一致するおつまみがありません。</div>`;
+  } else {
+    html += `<div class="grid">` + list.map(snackTile).join("") + `</div>`;
+  }
+  view.innerHTML = html;
+}
+
+function snackTile(s) {
+  const ic = iconMeta(s.icon);
+  const st = STATUS[s.status] || STATUS.none;
+  const statusCls = s.status === "confident" ? "st-confident" : (s.status === "made" ? "st-made" : "st-none");
+  const statusIcon = s.status === "confident" ? `<i class="ti ti-star" aria-hidden="true"></i>`
+                   : s.status === "made" ? `<i class="ti ti-check" aria-hidden="true"></i>` : "";
+
+  const wantBtn = s.wantToMake
+    ? `<button class="want-tag on" onclick="toggleWantOnTile(event,'${s.id}')">作りたい</button>`
+    : `<button class="want-tag" onclick="toggleWantOnTile(event,'${s.id}')"><i class="ti ti-plus" aria-hidden="true"></i>作りたい</button>`;
+
+  let tags = (s.drinks || []).map(d => {
+    const c = DRINK_COLORS[d];
+    if (!c || !DRINKS[d]) return "";
+    return `<span class="dpill" style="background:${c.bg};color:${c.text}">${DRINKS[d]}</span>`;
+  }).join("");
+  if (s.recipeUrl) {
+    tags += `<a class="tile-link" href="${esc(s.recipeUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="レシピを開く"><i class="ti ti-external-link" aria-hidden="true"></i></a>`;
+  }
+
+  return `<div class="tile" style="background:${ic.tile}" onclick="openForm('${s.id}')">
+    <div class="tile-want">${wantBtn}</div>
+    <div class="tile-ic" style="background:${ic.chip};color:${ic.ink}"><i class="ti ti-${s.icon || DEFAULT_ICON}" aria-hidden="true"></i></div>
+    <div class="tile-name">${esc(s.name)}</div>
+    <div class="tile-badges">
+      <span class="tile-status ${statusCls}">${statusIcon}${st.label}</span>
+    </div>
+    ${tags ? `<div class="tile-tags">${tags}</div>` : ""}
+  </div>`;
+}
+
+// タイル上で「作りたい」を直接オン/オフ（編集画面を開かずに切り替え）
+function toggleWantOnTile(ev, id) {
+  ev.stopPropagation();
+  const s = db.snacks.find(x => x.id === id);
+  if (!s) return;
+  s.wantToMake = !s.wantToMake;
+  render();
+  if (persist()) toast(s.wantToMake ? "作りたいに追加しました" : "作りたいを外しました");
+}
+
+/* ---------- 登録・編集フォーム ---------- */
+let formState = null;
+
+function openForm(editId) {
+  if (editId) {
+    const s = db.snacks.find(x => x.id === editId);
+    formState = { editId, name: s.name, description: s.description, drinks: s.drinks.slice(), recipeUrl: s.recipeUrl, status: s.status, wantToMake: s.wantToMake, icon: s.icon || "" };
+  } else {
+    formState = { drinks: [], status: "none", wantToMake: false, icon: "" };
+  }
+  document.getElementById("formOverlay").classList.remove("hidden");
+  renderForm();
+}
+function closeForm() {
+  document.getElementById("formOverlay").classList.add("hidden");
+  formState = null;
+}
+
+function renderForm() {
+  const sheet = document.getElementById("formSheet");
+  const isEdit = !!formState.editId;
+  let html = `<div class="sheet-head"><h2>${isEdit ? "おつまみを編集" : "おつまみを登録"}</h2>${isEdit ? `<button class="icon-del" onclick="deleteSnack('${formState.editId}')" aria-label="このおつまみを削除"><i class="ti ti-trash" aria-hidden="true"></i></button>` : ""}</div>`;
+
+  html += `<div class="field"><label>名前(必須)</label>
+    <input type="text" id="f-name" placeholder="例:枝豆の塩昆布和え" value="${esc(formState.name || "")}" />
+    <div class="field-error" id="f-name-error">名前を入力してください</div></div>`;
+
+  html += `<div class="field"><label>アイコン(任意)</label><div class="icon-grid">`;
+  ICON_LIST.forEach(o => {
+    const active = formState.icon === o.ti;
+    html += `<div class="icon-opt ${active ? "active" : ""}" style="${active ? `background:${o.tile}` : ""}" onclick="setIcon('${o.ti}')">
+      <i class="ti ti-${o.ti}" style="color:${o.ink}" aria-hidden="true"></i>
+      <span>${o.label}</span>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  html += `<div class="field"><label>説明(任意)</label>
+    <textarea id="f-desc" placeholder="ひとことメモ">${esc(formState.description || "")}</textarea></div>`;
+
+  html += `<div class="field"><label>合うお酒(複数選択可)</label><div class="chip-group">`;
+  Object.entries(DRINKS).forEach(([key, label]) => {
+    const active = formState.drinks.includes(key);
+    html += `<div class="chip ${active ? "active" : ""}" onclick="toggleDrink('${key}')">${label}</div>`;
+  });
+  html += `</div></div>`;
+
+  html += `<div class="field field-row">
+    <div class="col">
+      <label>実績ステータス</label>
+      <div class="chip-group">`;
+  Object.entries(STATUS).forEach(([key, v]) => {
+    const active = formState.status === key;
+    html += `<div class="chip ${active ? "active" : ""}" onclick="setStatus('${key}')">${v.label}</div>`;
+  });
+  html += `</div>
+    </div>
+    <div class="col col-want">
+      <label>作りたいフラグ</label>
+      <div class="chip-group">
+        <div class="chip want-chip ${formState.wantToMake ? "active" : ""}" onclick="toggleWant()">作りたい</div>
+      </div>
+    </div>
+  </div>`;
+
+  html += `<div class="field"><label>レシピURL(任意)</label>
+    <input type="text" id="f-url" placeholder="https://..." value="${esc(formState.recipeUrl || "")}" /></div>`;
+
+  html += `<div class="btn-row">
+    <button class="btn btn-secondary" onclick="closeForm()">キャンセル</button>
+    <button class="btn btn-primary" onclick="submitForm()">${isEdit ? "更新する" : "登録する"}</button>
+  </div>`;
+
+  sheet.innerHTML = html;
+}
+
+function toggleDrink(key) {
+  syncTextInputs();
+  const i = formState.drinks.indexOf(key);
+  if (i >= 0) formState.drinks.splice(i, 1); else formState.drinks.push(key);
+  renderForm();
+}
+function setStatus(key) {
+  syncTextInputs();
+  formState.status = key;
+  renderForm();
+}
+function setIcon(name) {
+  syncTextInputs();
+  formState.icon = (formState.icon === name ? "" : name);
+  renderForm();
+}
+function toggleWant() {
+  syncTextInputs();
+  formState.wantToMake = !formState.wantToMake;
+  renderForm();
+}
+function syncTextInputs() {
+  const nameEl = document.getElementById("f-name");
+  const descEl = document.getElementById("f-desc");
+  const urlEl = document.getElementById("f-url");
+  if (nameEl) formState.name = nameEl.value;
+  if (descEl) formState.description = descEl.value;
+  if (urlEl) formState.recipeUrl = urlEl.value;
+}
+
+function submitForm() {
+  syncTextInputs();
+  const name = (formState.name || "").trim();
+  if (!name) {
+    const nameInput = document.getElementById("f-name");
+    nameInput.classList.add("field-invalid");
+    document.getElementById("f-name-error").classList.add("show");
+    nameInput.scrollIntoView({ block: "center", behavior: "smooth" });
+    nameInput.focus();
+    return;
+  }
+  const fields = {
+    name,
+    description: (formState.description || "").trim(),
+    drinks: formState.drinks,
+    recipeUrl: (formState.recipeUrl || "").trim(),
+    status: formState.status,
+    wantToMake: formState.wantToMake,
+    icon: formState.icon || "",
+  };
+  const isEdit = !!formState.editId;
+  if (isEdit) {
+    Object.assign(db.snacks.find(x => x.id === formState.editId), fields);
+  } else {
+    db.snacks.push({ id: uid(), ...fields });
+  }
+  // 先に画面を更新してから保存する（保存が失敗しても操作が固まらないように）
+  closeForm();
+  render();
+  if (persist()) toast(isEdit ? "更新しました" : "登録しました");
+}
+
+async function deleteSnack(id) {
+  const s = db.snacks.find(x => x.id === id);
+  if (!s) return;
+  const ok = await askConfirm(`「${esc(s.name)}」を削除します。よろしいですか?`, { okLabel: "削除する", danger: true });
+  if (!ok) return;
+  db.snacks = db.snacks.filter(x => x.id !== id);
+  closeForm();
+  render();
+  if (persist()) toast("削除しました");
+}
+
+/* ---------- 確認ダイアログ ---------- */
+const confirmOverlay = document.getElementById("confirmOverlay");
+const confirmSheet = document.getElementById("confirmSheet");
+function askConfirm(message, opts) {
+  opts = opts || {};
+  const okLabel = opts.okLabel || "OK";
+  const danger = !!opts.danger;
+  return new Promise(resolve => {
+    confirmSheet.innerHTML = `
+      <div class="confirm-msg">${message}</div>
+      <div class="confirm-actions">
+        <button class="btn btn-secondary" id="cf_no">キャンセル</button>
+        <button class="btn ${danger ? "btn-danger" : "btn-primary"}" id="cf_yes">${okLabel}</button>
+      </div>`;
+    confirmOverlay.classList.remove("hidden");
+    const done = val => { confirmOverlay.onclick = null; confirmOverlay.classList.add("hidden"); resolve(val); };
+    confirmSheet.querySelector("#cf_yes").onclick = () => done(true);
+    confirmSheet.querySelector("#cf_no").onclick = () => done(false);
+    confirmOverlay.onclick = e => { if (e.target === confirmOverlay) done(false); };
+  });
+}
+
+/* ---------- シート外（暗い背景）のクリックで閉じる ---------- */
+document.getElementById("formOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "formOverlay") closeForm();
+});
+
+/* ---------- トースト通知 ---------- */
+const toastEl = document.getElementById("toast");
+let toastTimer;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 1800);
+}
+
+render();
+</script>
+</body>
+</html>
