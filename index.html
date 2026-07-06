@@ -119,7 +119,7 @@
   .field-row .col:first-child { flex: 0 1 auto; }
   .field-row .col:first-child .chip-group { max-width: 240px; }
   .field-row .col-want { flex: 0 0 auto; }
-  .field input[type=text], .field textarea {
+  .field input[type=text], .field input[type=url], .field textarea {
     width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 8px;
     padding: 10px 12px; color: var(--ink); font-size: 15px; font-family: inherit;
   }
@@ -374,9 +374,9 @@ function renderForm() {
   const isEdit = !!formState.editId;
   let html = `<div class="sheet-head"><h2>${isEdit ? "おつまみを編集" : "おつまみを登録"}</h2>${isEdit ? `<button class="icon-del" onclick="deleteSnack('${formState.editId}')" aria-label="このおつまみを削除"><i class="ti ti-trash" aria-hidden="true"></i></button>` : ""}</div>`;
 
-  html += `<div class="field"><label>名前(必須)</label>
-    <input type="text" id="f-name" placeholder="例:枝豆の塩昆布和え" value="${esc(formState.name || "")}" />
-    <div class="field-error" id="f-name-error">名前を入力してください</div></div>`;
+  html += `<div class="field"><label>おつまみ(必須)</label>
+    <input type="text" id="f-item" placeholder="例:枝豆の塩昆布和え" value="${esc(formState.name || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    <div class="field-error" id="f-item-error">おつまみを入力してください</div></div>`;
 
   html += `<div class="field"><label>アイコン(任意)</label><div class="icon-grid">`;
   ICON_LIST.forEach(o => {
@@ -417,7 +417,7 @@ function renderForm() {
   </div>`;
 
   html += `<div class="field"><label>レシピURL(任意)</label>
-    <input type="text" id="f-url" placeholder="https://..." value="${esc(formState.recipeUrl || "")}" /></div>`;
+    <input type="url" inputmode="url" id="f-url" placeholder="https://..." value="${esc(formState.recipeUrl || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /></div>`;
 
   html += `<div class="btn-row">
     <button class="btn btn-secondary" onclick="closeForm()">キャンセル</button>
@@ -449,7 +449,7 @@ function toggleWant() {
   renderForm();
 }
 function syncTextInputs() {
-  const nameEl = document.getElementById("f-name");
+  const nameEl = document.getElementById("f-item");
   const descEl = document.getElementById("f-desc");
   const urlEl = document.getElementById("f-url");
   if (nameEl) formState.name = nameEl.value;
@@ -461,9 +461,9 @@ function submitForm() {
   syncTextInputs();
   const name = (formState.name || "").trim();
   if (!name) {
-    const nameInput = document.getElementById("f-name");
+    const nameInput = document.getElementById("f-item");
     nameInput.classList.add("field-invalid");
-    document.getElementById("f-name-error").classList.add("show");
+    document.getElementById("f-item-error").classList.add("show");
     nameInput.scrollIntoView({ block: "center", behavior: "smooth" });
     nameInput.focus();
     return;
