@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#FCFBF8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="おうち居酒屋" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="apple-touch-icon.png" />
 <title>🏮 おうち居酒屋</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
 <style>
@@ -44,6 +50,7 @@
   }
   header h1 { margin: 0; font-size: 21px; font-weight: 500; letter-spacing: .03em; }
   header .sub { font-size: 11px; color: var(--sub); margin-top: 3px; }
+  header .ver { position: absolute; top: calc(env(safe-area-inset-top) + 8px); right: 10px; font-size: 10px; letter-spacing: .05em; color: var(--faint); }
 
   main { max-width: 640px; margin: 0 auto; padding: 16px; }
 
@@ -103,7 +110,7 @@
   }
   .overlay.hidden { display: none; }
   .sheet {
-    background: var(--surface); width: 100%; max-width: 460px; max-height: 96vh; overflow-y: auto;
+    background: var(--surface); width: 100%; max-width: 460px; max-height: 92vh; max-height: 92dvh; overflow-y: auto;
     border-radius: 16px 16px 0 0; padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
   }
@@ -165,6 +172,7 @@
 <body>
 
 <header>
+  <div class="ver" id="ver"></div>
   <h1>🏮 おうち居酒屋</h1>
   <div class="sub">おつまみレパートリー</div>
 </header>
@@ -204,6 +212,10 @@ function persist() {
 let db = load();
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+/* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
+const APP_VERSION = "v1.3";
+document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
 const DRINKS = {
