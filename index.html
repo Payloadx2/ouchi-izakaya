@@ -167,11 +167,25 @@
     z-index: 60; opacity: 1; transition: opacity .3s ease;
   }
   .toast.hidden { opacity: 0; pointer-events: none; }
+
+  /* 認証（ログイン画面） */
+  .auth-gate { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .auth-gate.hidden { display: none; }
+  .auth-card { text-align: center; max-width: 320px; }
+  .auth-icon { font-size: 46px; }
+  .auth-title { font-size: 22px; font-weight: 500; color: var(--ink); margin-top: 6px; }
+  .auth-sub { font-size: 13px; color: var(--sub); margin: 8px 0 24px; line-height: 1.7; }
+  .auth-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 500; cursor: pointer; }
+  .auth-btn i { font-size: 18px; color: var(--coral); }
+  .auth-btn:active { transform: scale(.98); }
+  .logout-btn { position: absolute; top: calc(env(safe-area-inset-top) + 8px); left: 10px; background: none; border: none; color: var(--faint); font-size: 20px; cursor: pointer; padding: 4px; display: inline-flex; }
+  .logout-btn:active { opacity: .6; }
 </style>
 </head>
 <body>
 
 <header>
+  <button class="logout-btn" onclick="signOut()" aria-label="ログアウト"><i class="ti ti-logout" aria-hidden="true"></i></button>
   <div class="ver" id="ver"></div>
   <h1>🏮 おうち居酒屋</h1>
   <div class="sub">おつまみレパートリー</div>
@@ -192,29 +206,48 @@
   <div class="sheet confirm-sheet" id="confirmSheet"></div>
 </div>
 
+<div class="auth-gate" id="authGate">
+  <div class="auth-card">
+    <div class="auth-icon">🏮</div>
+    <div class="auth-title">おうち居酒屋</div>
+    <div class="auth-sub">おつまみレパートリーを記録して、<br>どの端末でも見られるように。</div>
+    <button class="auth-btn" onclick="signIn()"><i class="ti ti-brand-google" aria-hidden="true"></i> Googleでログイン</button>
+  </div>
+</div>
+
 <div class="toast hidden" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
 
-/* ---------- データの保存・読み込み ---------- */
-const KEY = "ouchi_izakaya_v1";
-function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || { snacks: [] }; }
-  catch (e) { return { snacks: [] }; }
-}
-function save() { localStorage.setItem(KEY, JSON.stringify(db)); }
-// 保存を試みる。失敗（localStorageがブロックされている等）してもUIは止めず、正直に知らせる
-function persist() {
-  try { save(); return true; }
-  catch (e) { toast("保存できませんでした。ブラウザの設定をご確認ください"); return false; }
-}
-let db = load();
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+/* ---------- Supabase 接続 ---------- */
+const SUPABASE_URL = "https://eiachkyrrajgqsevlgqy.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Uxdoyw2LNBlQX7UnSA1o7w_M--XFlh8"; // 公開してよいキー
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 画面はこのメモリ上のキャッシュを見て描画する（Supabaseから取得して詰める）
+let db = { snacks: [] };
 const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
+// DB(snake_case) ↔ アプリ(camelCase) の橋渡し
+function rowToSnack(r) {
+  return { id: r.id, name: r.name || "", description: r.description || "", drinks: r.drinks || [], recipeUrl: r.recipe_url || "", status: r.status || "none", wantToMake: !!r.want_to_make, icon: r.icon || "" };
+}
+function snackToRow(s) {
+  return { name: s.name, description: s.description || "", drinks: s.drinks || [], recipe_url: s.recipeUrl || "", status: s.status || "none", want_to_make: !!s.wantToMake, icon: s.icon || "" };
+}
+
+// 全件取得してキャッシュへ（新しい順に見せるので created_at 昇順で取り、描画側で reverse）
+async function fetchSnacks() {
+  const { data, error } = await sb.from("snacks").select("*").order("created_at", { ascending: true });
+  if (error) { console.error(error); toast("読み込みに失敗しました"); return false; }
+  db.snacks = data.map(rowToSnack);
+  return true;
+}
+
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v1.3";
+const APP_VERSION = "v2.1";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -354,13 +387,16 @@ function snackTile(s) {
 }
 
 // タイル上で「作りたい」を直接オン/オフ（編集画面を開かずに切り替え）
-function toggleWantOnTile(ev, id) {
+async function toggleWantOnTile(ev, id) {
   ev.stopPropagation();
   const s = db.snacks.find(x => x.id === id);
   if (!s) return;
-  s.wantToMake = !s.wantToMake;
+  const next = !s.wantToMake;
+  const { error } = await sb.from("snacks").update({ want_to_make: next }).eq("id", id);
+  if (error) { console.error(error); toast("更新に失敗しました"); return; }
+  s.wantToMake = next;
   render();
-  if (persist()) toast(s.wantToMake ? "作りたいに追加しました" : "作りたいを外しました");
+  toast(next ? "作りたいに追加しました" : "作りたいを外しました");
 }
 
 /* ---------- 登録・編集フォーム ---------- */
@@ -469,7 +505,7 @@ function syncTextInputs() {
   if (urlEl) formState.recipeUrl = urlEl.value;
 }
 
-function submitForm() {
+async function submitForm() {
   syncTextInputs();
   const name = (formState.name || "").trim();
   if (!name) {
@@ -480,7 +516,7 @@ function submitForm() {
     nameInput.focus();
     return;
   }
-  const fields = {
+  const s = {
     name,
     description: (formState.description || "").trim(),
     drinks: formState.drinks,
@@ -490,15 +526,26 @@ function submitForm() {
     icon: formState.icon || "",
   };
   const isEdit = !!formState.editId;
-  if (isEdit) {
-    Object.assign(db.snacks.find(x => x.id === formState.editId), fields);
-  } else {
-    db.snacks.push({ id: uid(), ...fields });
+  const editId = formState.editId;
+  try {
+    if (isEdit) {
+      const { data, error } = await sb.from("snacks").update(snackToRow(s)).eq("id", editId).select().single();
+      if (error) throw error;
+      const idx = db.snacks.findIndex(x => x.id === editId);
+      if (idx >= 0) db.snacks[idx] = rowToSnack(data);
+    } else {
+      const { data, error } = await sb.from("snacks").insert(snackToRow(s)).select().single();
+      if (error) throw error;
+      db.snacks.push(rowToSnack(data));
+    }
+  } catch (e) {
+    console.error(e);
+    toast(isEdit ? "更新に失敗しました" : "登録に失敗しました");
+    return;
   }
-  // 先に画面を更新してから保存する（保存が失敗しても操作が固まらないように）
   closeForm();
   render();
-  if (persist()) toast(isEdit ? "更新しました" : "登録しました");
+  toast(isEdit ? "更新しました" : "登録しました");
 }
 
 async function deleteSnack(id) {
@@ -506,10 +553,12 @@ async function deleteSnack(id) {
   if (!s) return;
   const ok = await askConfirm(`「${esc(s.name)}」を削除します。よろしいですか?`, { okLabel: "削除する", danger: true });
   if (!ok) return;
+  const { error } = await sb.from("snacks").delete().eq("id", id);
+  if (error) { console.error(error); toast("削除に失敗しました"); return; }
   db.snacks = db.snacks.filter(x => x.id !== id);
   closeForm();
   render();
-  if (persist()) toast("削除しました");
+  toast("削除しました");
 }
 
 /* ---------- 確認ダイアログ ---------- */
@@ -549,7 +598,38 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 1800);
 }
 
-render();
+/* ---------- 起動：Supabaseから読み込んで描画 ---------- */
+async function init() {
+  view.innerHTML = `<div class="empty">読み込み中…</div>`;
+  await fetchSnacks();
+  render();
+}
+
+/* ---------- 認証（ホストのGoogleログイン） ---------- */
+const authGate = document.getElementById("authGate");
+
+async function signIn() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if (error) { console.error(error); toast("ログインを開始できませんでした"); }
+}
+async function signOut() { await sb.auth.signOut(); }
+
+let started = false;
+async function onSession(session) {
+  if (session) {
+    authGate.classList.add("hidden");         // ログイン済み → アプリ表示
+    if (!started) { started = true; await init(); }
+  } else {
+    authGate.classList.remove("hidden");      // 未ログイン → ログイン画面
+    started = false;
+    db.snacks = [];
+  }
+}
+// ログイン/ログアウトの変化を監視（購読直後に現在の状態も通知される）
+sb.auth.onAuthStateChange((_event, session) => { onSession(session); });
 </script>
 </body>
 </html>
