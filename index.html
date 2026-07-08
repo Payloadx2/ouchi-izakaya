@@ -38,7 +38,7 @@
     background: var(--bg);
     color: var(--ink);
     line-height: 1.55;
-    padding-bottom: 100px;
+    padding-bottom: calc(118px + env(safe-area-inset-bottom));
   }
   header {
     position: sticky; top: 0; z-index: 20;
@@ -92,7 +92,7 @@
 
   /* FAB */
   .fab {
-    position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    position: fixed; right: 16px; bottom: calc(70px + env(safe-area-inset-bottom));
     display: inline-flex; align-items: center; gap: 6px;
     padding: 13px 20px; border-radius: 999px;
     background: var(--coral); color: #fff; border: none;
@@ -101,6 +101,7 @@
     z-index: 40; cursor: pointer;
   }
   .fab:active { transform: scale(.95); }
+  .fab.hidden { display: none; }
 
   /* overlay / sheet */
   .overlay {
@@ -126,7 +127,7 @@
   .field-row .col:first-child { flex: 0 1 auto; }
   .field-row .col:first-child .chip-group { max-width: 240px; }
   .field-row .col-want { flex: 0 0 auto; }
-  .field input[type=text], .field input[type=url], .field textarea {
+  .field input[type=text], .field input[type=url], .field input[type=datetime-local], .field textarea {
     width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 8px;
     padding: 10px 12px; color: var(--ink); font-size: 15px; font-family: inherit;
   }
@@ -162,7 +163,7 @@
   .confirm-actions button { flex: 1; }
 
   .toast {
-    position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: calc(72px + env(safe-area-inset-bottom)); transform: translateX(-50%);
     background: var(--ink); color: #fff; font-size: 13px; padding: 9px 18px; border-radius: 999px;
     z-index: 60; opacity: 1; transition: opacity .3s ease;
   }
@@ -180,6 +181,96 @@
   .auth-btn:active { transform: scale(.98); }
   .logout-btn { position: absolute; top: calc(env(safe-area-inset-top) + 8px); left: 10px; background: none; border: none; color: var(--faint); font-size: 20px; cursor: pointer; padding: 4px; display: inline-flex; }
   .logout-btn:active { opacity: .6; }
+
+  /* タブバー */
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  .tabbar button { flex: 1; background: none; border: none; padding: 8px 0 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--sub); font-size: 11px; cursor: pointer; }
+  .tabbar button i { font-size: 22px; }
+  .tabbar button.active { color: var(--coral); }
+
+  /* 画面ヘッダ（開店まわり） */
+  .screen-head { display: flex; align-items: center; gap: 8px; margin: 2px 0 14px; }
+  .screen-head h2 { font-size: 18px; font-weight: 500; margin: 0; color: var(--ink); }
+  .back-btn { background: none; border: none; color: var(--ink); font-size: 22px; cursor: pointer; padding: 0; display: inline-flex; margin-left: -4px; }
+  .btn-open { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; background: var(--coral); color: #fff; border: none; border-radius: 999px; padding: 8px 15px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-open i { font-size: 16px; }
+
+  /* 開催カード */
+  .event-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; cursor: pointer; }
+  .event-card:active { opacity: .9; }
+  .event-card-row { display: flex; align-items: center; justify-content: space-between; }
+  .event-date { font-size: 14px; font-weight: 500; color: var(--ink); }
+  .event-note { font-size: 12.5px; color: var(--sub); margin-top: 5px; }
+  .event-badge { font-size: 11px; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .event-badge.open { background: rgba(232,101,79,.14); color: var(--coral-ink); }
+  .event-badge.closed { background: var(--chipbg); color: var(--sub); }
+
+  /* メニュー選択リスト */
+  .pick-list { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .pick-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .pick-item:last-child { border-bottom: none; }
+  .pick-item.on { background: rgba(232,101,79,.06); }
+  .pick-ic { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; font-size: 15px; flex: 0 0 auto; }
+  .pick-name { flex: 1; font-size: 14px; color: var(--ink); }
+  .pick-check { font-size: 20px; color: var(--line); }
+  .pick-item.on .pick-check { color: var(--coral); }
+  .hint { font-size: 12.5px; color: var(--sub); padding: 4px 2px; }
+
+  /* 開催詳細 */
+  .evt-info { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; margin-bottom: 14px; }
+  .evt-when { font-size: 15px; font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .evt-note { font-size: 13px; color: var(--sub); margin-top: 6px; }
+  .evt-drinks { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tag { font-size: 11px; padding: 2px 9px; border-radius: 999px; background: var(--chipbg); color: var(--sub); }
+  .evt-share { margin-bottom: 8px; }
+  .evt-share-label { font-size: 12px; color: var(--sub); margin-bottom: 6px; }
+  .evt-share-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .evt-share-row input { flex: 1; background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; color: var(--ink); font-size: 13px; }
+  .btn-copy { flex: 0 0 auto; width: 44px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; color: var(--sub); font-size: 18px; cursor: pointer; }
+  .section-title2 { font-size: 13px; color: var(--sub); margin: 18px 2px 10px; }
+  .menu-line { border-bottom: 1px solid var(--line); padding: 11px 2px; }
+  .menu-line-head { display: flex; align-items: center; gap: 10px; }
+  .menu-name { flex: 1; font-size: 14.5px; color: var(--ink); }
+  .menu-count { font-size: 12px; font-weight: 500; color: #fff; background: var(--coral); border-radius: 999px; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
+  .menu-orderers { font-size: 12px; color: var(--sub); margin-top: 5px; padding-left: 36px; }
+
+  /* ゲスト（お品書き）画面 */
+  #guest { display: none; }
+  body.guest-mode header,
+  body.guest-mode main,
+  body.guest-mode .tabbar,
+  body.guest-mode .fab,
+  body.guest-mode #authGate,
+  body.guest-mode #formOverlay,
+  body.guest-mode #confirmOverlay { display: none !important; }
+  body.guest-mode #guest { display: block; }
+  #guest { min-height: 100vh; min-height: 100dvh; background: #F3E7CE; }
+  .g-inner { max-width: 600px; margin: 0 auto; padding: 26px 20px calc(48px + env(safe-area-inset-bottom));
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif; color: #2E2519; }
+  .g-masthead { text-align: center; }
+  .g-eyebrow { font-size: 11px; letter-spacing: .34em; color: #A6822F; }
+  .g-title { font-size: 26px; letter-spacing: .2em; margin: 8px 0 8px; }
+  .g-when { font-size: 13px; color: #7A6A4A; letter-spacing: .04em; }
+  .g-note { font-size: 13px; color: #6E5E44; margin-top: 10px; line-height: 1.9; }
+  .g-drinks { font-size: 12.5px; color: #8A6A28; margin-top: 12px; letter-spacing: .08em; }
+  .g-rule { height: 1.5px; background: #B08A3C; margin: 18px 0 3px; }
+  .g-rule2 { height: 1px; background: #D8C8A0; margin-bottom: 22px; }
+  .g-closed { text-align: center; background: rgba(181,69,58,.1); color: #A5342E; font-size: 13px; padding: 9px; border-radius: 6px; margin-bottom: 18px; }
+  .g-namebox { margin-bottom: 20px; }
+  .g-namebox label { display: block; font-size: 12px; color: #8A7A58; margin-bottom: 6px; letter-spacing: .1em; }
+  .g-namebox input { width: 100%; box-sizing: border-box; background: #FBF5E6; border: 1px solid #D8C8A0; border-radius: 8px; padding: 12px 13px; font-size: 16px; color: #2E2519; font-family: inherit; }
+  .g-namebox input.g-name-need { border-color: #B5453A; }
+  .g-item { border-top: 1px solid #E0D2AE; padding: 14px 2px; }
+  .g-item:last-child { border-bottom: 1px solid #E0D2AE; }
+  .g-item-head { display: flex; align-items: center; gap: 12px; }
+  .g-item-name { flex: 1; font-size: 16.5px; letter-spacing: .03em; }
+  .g-order { flex: 0 0 auto; font-family: inherit; font-size: 13px; padding: 6px 17px; border-radius: 999px; border: 1px solid #B5453A; background: transparent; color: #B5453A; cursor: pointer; white-space: nowrap; }
+  .g-order.on { background: #B5453A; color: #FBF5E6; }
+  .g-order:active { transform: scale(.97); }
+  .g-count { font-size: 12px; color: #8A7A58; }
+  .g-orderers { font-size: 12.5px; color: #8A6A3A; margin-top: 8px; line-height: 1.7; }
+  .g-orderers.g-none { color: #BAAB80; }
+  .g-empty { text-align: center; color: #8A7A58; padding: 40px 20px; }
 </style>
 </head>
 <body>
@@ -198,6 +289,11 @@
 
 <button class="fab" id="fab" onclick="openForm()">＋ レパートリーを追加</button>
 
+<nav class="tabbar" id="tabbar">
+  <button data-screen="repertoire" class="active" onclick="goRepertoire()"><i class="ti ti-tools-kitchen-2" aria-hidden="true"></i><span>レパートリー</span></button>
+  <button data-screen="events" onclick="goEvents()"><i class="ti ti-building-store" aria-hidden="true"></i><span>開店</span></button>
+</nav>
+
 <div class="overlay hidden" id="formOverlay">
   <div class="sheet" id="formSheet"></div>
 </div>
@@ -205,6 +301,8 @@
 <div class="overlay hidden" id="confirmOverlay">
   <div class="sheet confirm-sheet" id="confirmSheet"></div>
 </div>
+
+<div id="guest"><div class="g-inner" id="guestView"></div></div>
 
 <div class="auth-gate" id="authGate">
   <div class="auth-card">
@@ -247,7 +345,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v2.1";
+const APP_VERSION = "v3.0";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -598,11 +696,193 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 1800);
 }
 
+/* ========== 画面遷移（レパートリー / 開店） ========== */
+let screen = "repertoire";
+let eventsList = [];
+let eventData = null; // 開催詳細（get_event の結果）
+
+function showScreen(s) {
+  screen = s;
+  document.querySelectorAll(".tabbar button").forEach(b =>
+    b.classList.toggle("active", b.dataset.screen === (s === "repertoire" ? "repertoire" : "events")));
+  document.getElementById("fab").classList.toggle("hidden", s !== "repertoire");
+  if (s !== "repertoire") document.getElementById("countLabel").textContent = "";
+  routeRender();
+}
+function routeRender() {
+  if (screen === "repertoire") render();
+  else if (screen === "events") renderEvents();
+  else if (screen === "eventForm") renderEventForm();
+  else if (screen === "eventDetail") renderEventDetail();
+}
+function goRepertoire() { showScreen("repertoire"); }
+async function goEvents() { await fetchEvents(); showScreen("events"); }
+
+function fmtEventDate(iso) {
+  if (!iso) return "日時未定";
+  const d = new Date(iso);
+  const w = ["日","月","火","水","木","金","土"][d.getDay()];
+  return `${d.getMonth()+1}/${d.getDate()}(${w}) ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
+/* ---------- 開催一覧 ---------- */
+async function fetchEvents() {
+  const { data, error } = await sb.from("events").select("*").order("created_at", { ascending: false });
+  if (error) { console.error(error); toast("開催の読み込みに失敗しました"); eventsList = []; return; }
+  eventsList = data;
+}
+function renderEvents() {
+  let html = `<div class="screen-head"><h2>開店</h2>
+    <button class="btn-open" onclick="openEventForm()"><i class="ti ti-plus" aria-hidden="true"></i> 新しく開店</button></div>`;
+  if (!eventsList.length) {
+    html += `<div class="empty"><div class="big">まだ開店予定はありません</div>「新しく開店」から、メニューを組んで<br>友達を招きましょう。</div>`;
+  } else {
+    html += eventsList.map(ev => `
+      <div class="event-card" onclick="openEventDetail('${ev.id}')">
+        <div class="event-card-row">
+          <span class="event-date">${fmtEventDate(ev.event_at)}</span>
+          <span class="event-badge ${ev.is_open ? "open" : "closed"}">${ev.is_open ? "開店中" : "閉店"}</span>
+        </div>
+        ${ev.note ? `<div class="event-note">${esc(ev.note)}</div>` : ""}
+      </div>`).join("");
+  }
+  view.innerHTML = html;
+}
+
+/* ---------- 開店フォーム（作成） ---------- */
+let eventForm = null;
+function openEventForm() {
+  eventForm = { event_at: "", note: "", drinks: [], itemIds: [] };
+  showScreen("eventForm");
+}
+function syncEventForm() {
+  const at = document.getElementById("ev-at");
+  const note = document.getElementById("ev-note");
+  if (at) eventForm.event_at = at.value;
+  if (note) eventForm.note = note.value;
+}
+function toggleEventDrink(k) { syncEventForm(); const i = eventForm.drinks.indexOf(k); if (i >= 0) eventForm.drinks.splice(i,1); else eventForm.drinks.push(k); renderEventForm(); }
+function toggleEventItem(id) { syncEventForm(); const i = eventForm.itemIds.indexOf(id); if (i >= 0) eventForm.itemIds.splice(i,1); else eventForm.itemIds.push(id); renderEventForm(); }
+
+function renderEventForm() {
+  const f = eventForm;
+  let html = `<div class="screen-head"><button class="back-btn" onclick="goEvents()" aria-label="戻る"><i class="ti ti-chevron-left" aria-hidden="true"></i></button><h2>開店の準備</h2></div>`;
+  html += `<div class="field"><label>開催日時</label>
+    <input type="datetime-local" id="ev-at" value="${f.event_at}" /></div>`;
+  html += `<div class="field"><label>ひとこと(任意)</label>
+    <textarea id="ev-note" placeholder="例:今夜20時から軽くやりましょう">${esc(f.note)}</textarea></div>`;
+  html += `<div class="field"><label>用意してるお酒</label><div class="chip-group">`;
+  Object.entries(DRINKS).forEach(([k, l]) => {
+    html += `<div class="chip ${f.drinks.includes(k) ? "active" : ""}" onclick="toggleEventDrink('${k}')">${l}</div>`;
+  });
+  html += `</div></div>`;
+  html += `<div class="field"><label>メニュー(レパートリーから選ぶ)</label>`;
+  if (!db.snacks.length) {
+    html += `<div class="hint">先にレパートリーを登録すると、ここから選べます。</div>`;
+  } else {
+    html += `<div class="pick-list">`;
+    db.snacks.slice().reverse().forEach(s => {
+      const on = f.itemIds.includes(s.id);
+      const ic = iconMeta(s.icon);
+      html += `<div class="pick-item ${on ? "on" : ""}" onclick="toggleEventItem('${s.id}')">
+        <span class="pick-ic" style="background:${ic.chip};color:${ic.ink}"><i class="ti ti-${s.icon || DEFAULT_ICON}" aria-hidden="true"></i></span>
+        <span class="pick-name">${esc(s.name)}</span>
+        <i class="ti ti-${on ? "circle-check" : "circle"} pick-check" aria-hidden="true"></i>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  html += `<div class="btn-row">
+    <button class="btn btn-secondary" onclick="goEvents()">やめる</button>
+    <button class="btn btn-primary" onclick="createEvent()">開店する</button>
+  </div>`;
+  view.innerHTML = html;
+}
+
+async function createEvent() {
+  syncEventForm();
+  const f = eventForm;
+  const { data: ev, error: e1 } = await sb.from("events")
+    .insert({ event_at: f.event_at ? new Date(f.event_at).toISOString() : null, note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
+    .select().single();
+  if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
+  const items = f.itemIds.map((id, i) => {
+    const s = db.snacks.find(x => x.id === id);
+    return { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i };
+  });
+  if (items.length) {
+    const { error: e2 } = await sb.from("event_items").insert(items);
+    if (e2) { console.error(e2); toast("メニューの保存に失敗しました"); }
+  }
+  toast("開店しました");
+  await openEventDetail(ev.id);
+}
+
+/* ---------- 開催詳細（共有・開閉・お品書き・オーダー） ---------- */
+async function openEventDetail(id) {
+  const { data, error } = await sb.rpc("get_event", { p_event_id: id });
+  if (error) { console.error(error); toast("開催の読み込みに失敗しました"); return; }
+  eventData = data; eventData._id = id;
+  showScreen("eventDetail");
+}
+function shareUrl() { return window.location.origin + window.location.pathname + "?event=" + eventData._id; }
+
+function renderEventDetail() {
+  const d = eventData;
+  if (!d || !d.event) { view.innerHTML = `<div class="empty">開催が見つかりません</div>`; return; }
+  const ev = d.event, items = d.items || [], orders = d.orders || [];
+  let html = `<div class="screen-head"><button class="back-btn" onclick="goEvents()" aria-label="戻る"><i class="ti ti-chevron-left" aria-hidden="true"></i></button><h2>開催の詳細</h2></div>`;
+  html += `<div class="evt-info">
+    <div class="evt-when">${fmtEventDate(ev.event_at)} <span class="event-badge ${ev.is_open ? "open" : "closed"}">${ev.is_open ? "開店中" : "閉店"}</span></div>
+    ${ev.note ? `<div class="evt-note">${esc(ev.note)}</div>` : ""}
+    ${(ev.drinks && ev.drinks.length) ? `<div class="evt-drinks">${ev.drinks.map(k => DRINKS[k] ? `<span class="tag">${DRINKS[k]}</span>` : "").join("")}</div>` : ""}
+  </div>`;
+  html += `<div class="evt-share">
+    <div class="evt-share-label">共有リンク</div>
+    <div class="evt-share-row"><input type="text" id="shareInput" readonly value="${esc(shareUrl())}" /><button class="btn-copy" onclick="copyShare()" aria-label="リンクをコピー"><i class="ti ti-copy" aria-hidden="true"></i></button></div>
+    <button class="btn btn-secondary" onclick="shareText()"><i class="ti ti-send" aria-hidden="true"></i> 共有メッセージをコピー</button>
+  </div>`;
+  html += `<div class="btn-row"><button class="btn ${ev.is_open ? "btn-secondary" : "btn-primary"}" onclick="toggleEventOpen()">${ev.is_open ? "閉店する" : "もう一度開店する"}</button></div>`;
+  html += `<div class="section-title2">お品書き ・ ${items.length}品</div>`;
+  if (!items.length) html += `<div class="hint">メニューがありません。</div>`;
+  items.forEach(it => {
+    const ords = orders.filter(o => o.item_id === it.id);
+    const ic = iconMeta(it.icon);
+    html += `<div class="menu-line">
+      <div class="menu-line-head">
+        <span class="pick-ic" style="background:${ic.chip};color:${ic.ink}"><i class="ti ti-${it.icon || DEFAULT_ICON}" aria-hidden="true"></i></span>
+        <span class="menu-name">${esc(it.name)}</span>
+        ${ords.length ? `<span class="menu-count">${ords.length}</span>` : ""}
+      </div>
+      ${ords.length ? `<div class="menu-orderers">${ords.map(o => esc(o.guest_name || "名無し")).join("、")}</div>` : ""}
+    </div>`;
+  });
+  view.innerHTML = html;
+}
+
+async function copyShare() {
+  try { await navigator.clipboard.writeText(shareUrl()); toast("リンクをコピーしました"); }
+  catch (e) { toast("コピーできませんでした"); }
+}
+async function shareText() {
+  const ev = eventData.event;
+  const msg = `🏮おうち居酒屋、開店のお知らせ🏮\n${fmtEventDate(ev.event_at)}${ev.note ? "\n" + ev.note : ""}\nメニューを見て事前オーダーしてね↓\n${shareUrl()}`;
+  try { await navigator.clipboard.writeText(msg); toast("共有メッセージをコピーしました"); }
+  catch (e) { toast("コピーできませんでした"); }
+}
+async function toggleEventOpen() {
+  const ev = eventData.event;
+  const { error } = await sb.from("events").update({ is_open: !ev.is_open }).eq("id", eventData._id);
+  if (error) { console.error(error); toast("切り替えに失敗しました"); return; }
+  await openEventDetail(eventData._id);
+}
+
 /* ---------- 起動：Supabaseから読み込んで描画 ---------- */
 async function init() {
   view.innerHTML = `<div class="empty">読み込み中…</div>`;
   await fetchSnacks();
-  render();
+  showScreen("repertoire");
 }
 
 /* ---------- 認証（ホストのGoogleログイン） ---------- */
@@ -628,8 +908,92 @@ async function onSession(session) {
     db.snacks = [];
   }
 }
-// ログイン/ログアウトの変化を監視（購読直後に現在の状態も通知される）
-sb.auth.onAuthStateChange((_event, session) => { onSession(session); });
+/* ========== ゲスト（お品書き・オーダー）画面 ========== */
+let guestData = null;
+let guestName = "";
+let myGuestId = null;
+
+async function initGuest() {
+  document.body.classList.add("guest-mode");
+  const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", "#F3E7CE");
+  try { guestName = localStorage.getItem("ouchi_guest_name") || ""; } catch (e) {}
+  renderGuestMsg("読み込み中…");
+  let sess = (await sb.auth.getSession()).data.session;
+  if (!sess) {
+    const { error } = await sb.auth.signInAnonymously();
+    if (error) { console.error(error); renderGuestMsg("接続できませんでした。時間をおいて開き直してください。"); return; }
+  }
+  const u = (await sb.auth.getUser()).data.user;
+  myGuestId = u ? u.id : null;
+  await loadGuestEvent();
+}
+async function loadGuestEvent() {
+  const { data, error } = await sb.rpc("get_event", { p_event_id: guestEventId });
+  if (error || !data || !data.event) { console.error(error); renderGuestMsg("この開催は見つかりませんでした。"); return; }
+  guestData = data;
+  renderGuest();
+}
+function onGuestName(v) {
+  guestName = v;
+  try { localStorage.setItem("ouchi_guest_name", v); } catch (e) {}
+}
+async function toggleOrder(itemId) {
+  const name = (guestName || "").trim();
+  if (!name) {
+    toast("お名前を入れてください");
+    const el = document.getElementById("g-name-input");
+    if (el) { el.classList.add("g-name-need"); el.focus(); }
+    return;
+  }
+  const mine = guestData.orders.find(o => o.item_id === itemId && o.guest_id === myGuestId);
+  if (mine) {
+    const { error } = await sb.from("orders").delete().eq("id", mine.id);
+    if (error) { console.error(error); toast("取り消せませんでした"); return; }
+  } else {
+    const { error } = await sb.from("orders").insert({ event_id: guestEventId, item_id: itemId, guest_name: name });
+    if (error) { console.error(error); toast("注文できませんでした"); return; }
+  }
+  await sb.from("orders").update({ guest_name: name }).eq("event_id", guestEventId).eq("guest_id", myGuestId);
+  await loadGuestEvent();
+}
+function renderGuestMsg(msg) { document.getElementById("guestView").innerHTML = `<div class="g-empty">${esc(msg)}</div>`; }
+function renderGuest() {
+  const d = guestData, ev = d.event, items = d.items || [], orders = d.orders || [];
+  const closed = !ev.is_open;
+  let html = `<div class="g-masthead">
+    <div class="g-eyebrow">OUCHI IZAKAYA</div>
+    <div class="g-title">お品書き</div>
+    <div class="g-when">${fmtEventDate(ev.event_at)}</div>
+    ${ev.note ? `<div class="g-note">${esc(ev.note)}</div>` : ""}
+    ${(ev.drinks && ev.drinks.length) ? `<div class="g-drinks">本日のお酒　${ev.drinks.map(k => DRINKS[k] || "").filter(Boolean).join("・")}</div>` : ""}
+  </div><div class="g-rule"></div><div class="g-rule2"></div>`;
+  if (closed) html += `<div class="g-closed">この会は閉店しました</div>`;
+  html += `<div class="g-namebox"><label>お名前</label>
+    <input type="text" id="g-name-input" placeholder="ここに入力" value="${esc(guestName)}" autocomplete="off" autocorrect="off" oninput="onGuestName(this.value)" /></div>`;
+  if (!items.length) html += `<div class="g-empty">まだメニューがありません。</div>`;
+  items.forEach(it => {
+    const ords = orders.filter(o => o.item_id === it.id);
+    const mine = ords.some(o => o.guest_id === myGuestId);
+    html += `<div class="g-item"><div class="g-item-head">
+      <span class="g-item-name">${esc(it.name)}</span>
+      ${closed
+        ? `<span class="g-count">${ords.length ? ords.length + "件" : ""}</span>`
+        : `<button class="g-order ${mine ? "on" : ""}" onclick="toggleOrder('${it.id}')">${mine ? "頼んだ ✓" : "頼む"}</button>`}
+      </div>
+      ${ords.length ? `<div class="g-orderers">${ords.map(o => esc(o.guest_name || "名無し")).join("、")}</div>` : `<div class="g-orderers g-none">まだ誰も頼んでいません</div>`}
+    </div>`;
+  });
+  document.getElementById("guestView").innerHTML = html;
+}
+
+/* ---------- 起動時の分岐：ゲスト（?event=…）かホストか ---------- */
+const _params = new URLSearchParams(window.location.search);
+const guestEventId = _params.get("event");
+if (guestEventId) {
+  initGuest();
+} else {
+  sb.auth.onAuthStateChange((_event, session) => { onSession(session); });
+}
 </script>
 </body>
 </html>
