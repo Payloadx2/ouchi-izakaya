@@ -351,7 +351,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v3.4";
+const APP_VERSION = "v3.5";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -814,7 +814,7 @@ function renderEventForm() {
   html += `</div>`;
   html += `<div class="btn-row">
     <button class="btn btn-secondary" onclick="goEvents()">やめる</button>
-    <button class="btn btn-primary" onclick="onOpenTap()">開店する</button>
+    <button class="btn btn-primary" onclick="createEvent()">開店する</button>
   </div>`;
   view.innerHTML = html;
 }
@@ -828,50 +828,26 @@ function localInputToISO(v) {
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-// 画面上部に必ず出るデバッグ表示（iOS standaloneでalertが効かない対策）
-function dbg(msg) {
-  let el = document.getElementById("dbgbar");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "dbgbar";
-    el.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;background:rgba(20,20,20,.93);color:#fff;font-size:12px;line-height:1.55;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;white-space:pre-wrap;max-height:60vh;overflow:auto;";
-    document.body.appendChild(el);
-  }
-  el.textContent += (el.textContent ? "\n" : "") + msg;
-}
-// 「開店する」タップの入口（タップ自体を受け取れているか確認用）
-function onOpenTap() {
-  const bar = document.getElementById("dbgbar"); if (bar) bar.textContent = "";
-  dbg("TAP: 開店する 押された");
-  createEvent();
-}
-
 async function createEvent() {
   try {
-    dbg("A: 開始");
     syncEventForm();
     const f = eventForm;
-    const iso = localInputToISO(f.event_at);
-    dbg("B: 日時=" + f.event_at + " / iso=" + iso + " / 品数=" + f.itemIds.length);
-    const res = await sb.from("events")
-      .insert({ event_at: iso, note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
+    const { data: ev, error: e1 } = await sb.from("events")
+      .insert({ event_at: localInputToISO(f.event_at), note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
       .select().single();
-    dbg("C: insert完了 err=" + (res.error ? (res.error.message + " [" + (res.error.code || "") + "]") : "なし") + " / id=" + (res.data ? res.data.id : "null"));
-    if (res.error || !res.data) { toast("開店に失敗しました"); return; }
-    const ev = res.data;
+    if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
     const items = f.itemIds
       .map((id, i) => { const s = db.snacks.find(x => x.id === id); return s ? { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i } : null; })
       .filter(Boolean);
     if (items.length) {
-      const r2 = await sb.from("event_items").insert(items);
-      dbg("D: メニュー保存 err=" + (r2.error ? r2.error.message : "なし"));
-      if (r2.error) toast("メニューの保存に失敗しました");
+      const { error: e2 } = await sb.from("event_items").insert(items);
+      if (e2) { console.error(e2); toast("メニューの保存に失敗しました"); }
     }
-    dbg("E: 完了。詳細へ");
     toast("開店しました");
     await openEventDetail(ev.id);
   } catch (err) {
-    dbg("エラー catch: " + (err && err.message ? err.message : String(err)));
+    console.error(err);
+    toast("開店に失敗しました");
   }
 }
 
