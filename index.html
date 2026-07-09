@@ -239,6 +239,9 @@
   .menu-name { flex: 1; font-size: 14.5px; color: var(--ink); }
   .menu-count { font-size: 12px; font-weight: 500; color: #fff; background: var(--coral); border-radius: 999px; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
   .menu-orderers { font-size: 12px; color: var(--sub); margin-top: 5px; padding-left: 36px; }
+  .tile-static { cursor: default; }
+  .tile-ordercount { position: absolute; top: 9px; right: 9px; min-width: 22px; height: 22px; border-radius: 999px; background: var(--coral); color: #fff; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
+  .tile-orderers { font-size: 11.5px; color: var(--sub); margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(0,0,0,.06); }
 
   /* ゲスト（お品書き）画面 */
   #guest { display: none; }
@@ -258,7 +261,11 @@
   .g-title { font-size: 26px; letter-spacing: .2em; margin: 8px 0 8px; }
   .g-when { font-size: 13px; color: #7A6A4A; letter-spacing: .04em; }
   .g-note { font-size: 13px; color: #6E5E44; margin-top: 10px; line-height: 1.9; }
-  .g-drinks { font-size: 12.5px; color: #8A6A28; margin-top: 12px; letter-spacing: .08em; }
+  .g-drinks { margin: 0 0 20px; padding: 12px 16px; background: #FAF0D6; border: 1px solid #E6D0A0; border-radius: 10px; text-align: center; }
+  .g-drinks-label { display: block; font-size: 11px; letter-spacing: .3em; color: #A6822F; margin-bottom: 5px; }
+  .g-drinks-list { font-size: 17px; color: #8A5227; letter-spacing: .1em; }
+  .g-recipe { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #A5533A; text-decoration: none; margin-top: 8px; border-bottom: 1px solid rgba(165,83,58,.35); }
+  .g-recipe:active { opacity: .6; }
   .g-rule { height: 1.5px; background: #B08A3C; margin: 18px 0 3px; }
   .g-rule2 { height: 1px; background: #D8C8A0; margin-bottom: 22px; }
   .g-closed { text-align: center; background: rgba(181,69,58,.1); color: #A5342E; font-size: 13px; padding: 9px; border-radius: 6px; margin-bottom: 18px; }
@@ -351,7 +358,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v3.9";
+const APP_VERSION = "v4.0";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -363,7 +370,6 @@ const DRINKS = {
   wine:    "ワイン",
   gin:     "ジン",
   cocktail:"カクテル",
-  any:     "何にでも合う",
 };
 // お酒ごとの固定色（タグの背景・文字）
 const DRINK_COLORS = {
@@ -374,7 +380,6 @@ const DRINK_COLORS = {
   wine:     { bg: "#ECDCE8", text: "#7A2E63" },
   gin:      { bg: "#D9EEE3", text: "#2E6B4E" },
   cocktail: { bg: "#FBDCEA", text: "#9A3866" },
-  any:      { bg: "#ECEAE3", text: "#6A665C" },
 };
 const STATUS = {
   none:      { label: "作ったことなし" },
@@ -405,7 +410,7 @@ const filters = { status: "all", drink: "all", wantOnly: false };
 
 function matchesFilters(s) {
   if (filters.status !== "all" && s.status !== filters.status) return false;
-  if (filters.drink !== "all" && !s.drinks.includes(filters.drink) && !s.drinks.includes("any")) return false;
+  if (filters.drink !== "all" && !s.drinks.includes(filters.drink)) return false;
   if (filters.wantOnly && !s.wantToMake) return false;
   return true;
 }
@@ -833,12 +838,15 @@ async function submitEvent() {
   try {
     syncEventForm();
     const f = eventForm;
+    if (!f.event_at) { toast("開催日時を選んでください"); return; }
+    if (!f.drinks.length) { toast("用意するお酒を1つ以上選んでください"); return; }
+    if (!f.itemIds.length) { toast("メニューを1つ以上選んでください"); return; }
     const { data: ev, error: e1 } = await sb.from("events")
       .insert({ event_at: localInputToISO(f.event_at), note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
       .select().single();
     if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
     const items = f.itemIds
-      .map((id, i) => { const s = db.snacks.find(x => x.id === id); return s ? { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i } : null; })
+      .map((id, i) => { const s = db.snacks.find(x => x.id === id); return s ? { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i, drinks: s.drinks || [], status: s.status || "none", recipe_url: s.recipeUrl || "" } : null; })
       .filter(Boolean);
     if (items.length) {
       const { error: e2 } = await sb.from("event_items").insert(items);
@@ -879,19 +887,32 @@ function renderEventDetail() {
   html += `<div class="btn-row"><button class="btn ${ev.is_open ? "btn-secondary" : "btn-primary"}" onclick="toggleEventOpen()">${ev.is_open ? "閉店する" : "もう一度開店する"}</button></div>`;
   html += `<div class="section-title2">お品書き ・ ${items.length}品</div>`;
   if (!items.length) html += `<div class="hint">メニューがありません。</div>`;
-  items.forEach(it => {
-    const ords = orders.filter(o => o.item_id === it.id);
-    const ic = iconMeta(it.icon);
-    html += `<div class="menu-line">
-      <div class="menu-line-head">
-        <span class="pick-ic" style="background:${ic.chip};color:${ic.ink}"><i class="ti ti-${it.icon || DEFAULT_ICON}" aria-hidden="true"></i></span>
-        <span class="menu-name">${esc(it.name)}</span>
-        ${ords.length ? `<span class="menu-count">${ords.length}</span>` : ""}
-      </div>
-      ${ords.length ? `<div class="menu-orderers">${ords.map(o => esc(o.guest_name || "名無し")).join("、")}</div>` : ""}
-    </div>`;
-  });
+  else html += `<div class="grid">` + items.map(it => eventItemTile(it, orders)).join("") + `</div>`;
   view.innerHTML = html;
+}
+
+// 開催詳細のメニュータイル（品の情報＋レシピリンク＋注文者）
+function eventItemTile(it, orders) {
+  const ic = iconMeta(it.icon);
+  const st = STATUS[it.status] || STATUS.none;
+  const statusCls = it.status === "confident" ? "st-confident" : (it.status === "made" ? "st-made" : "st-none");
+  const statusIcon = it.status === "confident" ? `<i class="ti ti-star" aria-hidden="true"></i>`
+                   : it.status === "made" ? `<i class="ti ti-check" aria-hidden="true"></i>` : "";
+  let tags = (it.drinks || []).map(d => {
+    const c = DRINK_COLORS[d];
+    if (!c || !DRINKS[d]) return "";
+    return `<span class="dpill" style="background:${c.bg};color:${c.text}">${DRINKS[d]}</span>`;
+  }).join("");
+  if (it.recipe_url) tags += `<a class="tile-link" href="${esc(it.recipe_url)}" target="_blank" rel="noopener" aria-label="レシピを開く"><i class="ti ti-external-link" aria-hidden="true"></i></a>`;
+  const ords = orders.filter(o => o.item_id === it.id);
+  return `<div class="tile tile-static" style="background:${ic.tile}">
+    ${ords.length ? `<span class="tile-ordercount">${ords.length}</span>` : ""}
+    <div class="tile-ic" style="background:${ic.chip};color:${ic.ink}"><i class="ti ti-${it.icon || DEFAULT_ICON}" aria-hidden="true"></i></div>
+    <div class="tile-name">${esc(it.name)}</div>
+    <div class="tile-badges"><span class="tile-status ${statusCls}">${statusIcon}${st.label}</span></div>
+    ${tags ? `<div class="tile-tags">${tags}</div>` : ""}
+    <div class="tile-orderers">${ords.length ? ords.map(o => esc(o.guest_name || "名無し")).join("、") : "まだ注文なし"}</div>
+  </div>`;
 }
 
 async function copyShare() {
@@ -998,9 +1019,11 @@ function renderGuest() {
     <div class="g-title">お品書き</div>
     <div class="g-when">${fmtEventDate(ev.event_at)}</div>
     ${ev.note ? `<div class="g-note">${esc(ev.note)}</div>` : ""}
-    ${(ev.drinks && ev.drinks.length) ? `<div class="g-drinks">本日のお酒　${ev.drinks.map(k => DRINKS[k] || "").filter(Boolean).join("・")}</div>` : ""}
   </div><div class="g-rule"></div><div class="g-rule2"></div>`;
   if (closed) html += `<div class="g-closed">この会は閉店しました</div>`;
+  if (ev.drinks && ev.drinks.length) {
+    html += `<div class="g-drinks"><span class="g-drinks-label">本日のお酒</span><span class="g-drinks-list">${ev.drinks.map(k => DRINKS[k] || "").filter(Boolean).join("・")}</span></div>`;
+  }
   html += `<div class="g-namebox"><label>お名前</label>
     <input type="text" id="g-name-input" placeholder="ここに入力" value="${esc(guestName)}" autocomplete="off" autocorrect="off" oninput="onGuestName(this.value)" /></div>`;
   if (!items.length) html += `<div class="g-empty">まだメニューがありません。</div>`;
@@ -1013,6 +1036,7 @@ function renderGuest() {
         ? `<span class="g-count">${ords.length ? ords.length + "件" : ""}</span>`
         : `<button class="g-order ${mine ? "on" : ""}" onclick="toggleOrder('${it.id}')">${mine ? "頼んだ ✓" : "頼む"}</button>`}
       </div>
+      ${it.recipe_url ? `<a class="g-recipe" href="${esc(it.recipe_url)}" target="_blank" rel="noopener"><i class="ti ti-external-link" aria-hidden="true"></i> レシピを見る</a>` : ""}
       ${ords.length ? `<div class="g-orderers">${ords.map(o => esc(o.guest_name || "名無し")).join("、")}</div>` : `<div class="g-orderers g-none">まだ誰も頼んでいません</div>`}
     </div>`;
   });
