@@ -216,6 +216,12 @@
   .pick-item.on .pick-check { color: var(--coral); }
   .hint { font-size: 12.5px; color: var(--sub); padding: 4px 2px; }
 
+  /* メニュー選択タイル（レパートリー閲覧版＋チェック） */
+  .picktile { position: relative; }
+  .picktile.sel { box-shadow: 0 0 0 2px var(--coral); }
+  .pt-check { position: absolute; top: 9px; right: 9px; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--faint); background: rgba(255,255,255,.75); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+  .pt-check.on { background: var(--coral); border-color: var(--coral); }
+
   /* 開催詳細 */
   .evt-info { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; margin-bottom: 14px; }
   .evt-when { font-size: 15px; font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -345,7 +351,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v3.0";
+const APP_VERSION = "v3.2";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -764,6 +770,29 @@ function syncEventForm() {
 function toggleEventDrink(k) { syncEventForm(); const i = eventForm.drinks.indexOf(k); if (i >= 0) eventForm.drinks.splice(i,1); else eventForm.drinks.push(k); renderEventForm(); }
 function toggleEventItem(id) { syncEventForm(); const i = eventForm.itemIds.indexOf(id); if (i >= 0) eventForm.itemIds.splice(i,1); else eventForm.itemIds.push(id); renderEventForm(); }
 
+// メニュー選択タイル（レパートリーの閲覧版＋選択チェック）
+function pickTile(s) {
+  const on = eventForm.itemIds.includes(s.id);
+  const ic = iconMeta(s.icon);
+  const st = STATUS[s.status] || STATUS.none;
+  const statusCls = s.status === "confident" ? "st-confident" : (s.status === "made" ? "st-made" : "st-none");
+  const statusIcon = s.status === "confident" ? `<i class="ti ti-star" aria-hidden="true"></i>`
+                   : s.status === "made" ? `<i class="ti ti-check" aria-hidden="true"></i>` : "";
+  let tags = (s.drinks || []).map(d => {
+    const c = DRINK_COLORS[d];
+    if (!c || !DRINKS[d]) return "";
+    return `<span class="dpill" style="background:${c.bg};color:${c.text}">${DRINKS[d]}</span>`;
+  }).join("");
+  if (s.recipeUrl) tags += `<a class="tile-link" href="${esc(s.recipeUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="レシピを開く"><i class="ti ti-external-link" aria-hidden="true"></i></a>`;
+  return `<div class="tile picktile ${on ? "sel" : ""}" style="background:${ic.tile}" onclick="toggleEventItem('${s.id}')">
+    <span class="pt-check ${on ? "on" : ""}">${on ? `<i class="ti ti-check" aria-hidden="true"></i>` : ""}</span>
+    <div class="tile-ic" style="background:${ic.chip};color:${ic.ink}"><i class="ti ti-${s.icon || DEFAULT_ICON}" aria-hidden="true"></i></div>
+    <div class="tile-name">${esc(s.name)}</div>
+    <div class="tile-badges"><span class="tile-status ${statusCls}">${statusIcon}${st.label}</span></div>
+    ${tags ? `<div class="tile-tags">${tags}</div>` : ""}
+  </div>`;
+}
+
 function renderEventForm() {
   const f = eventForm;
   let html = `<div class="screen-head"><button class="back-btn" onclick="goEvents()" aria-label="戻る"><i class="ti ti-chevron-left" aria-hidden="true"></i></button><h2>開店の準備</h2></div>`;
@@ -776,21 +805,11 @@ function renderEventForm() {
     html += `<div class="chip ${f.drinks.includes(k) ? "active" : ""}" onclick="toggleEventDrink('${k}')">${l}</div>`;
   });
   html += `</div></div>`;
-  html += `<div class="field"><label>メニュー(レパートリーから選ぶ)</label>`;
+  html += `<div class="field"><label>メニュー(レパートリーから選ぶ ・ ${f.itemIds.length}品)</label>`;
   if (!db.snacks.length) {
     html += `<div class="hint">先にレパートリーを登録すると、ここから選べます。</div>`;
   } else {
-    html += `<div class="pick-list">`;
-    db.snacks.slice().reverse().forEach(s => {
-      const on = f.itemIds.includes(s.id);
-      const ic = iconMeta(s.icon);
-      html += `<div class="pick-item ${on ? "on" : ""}" onclick="toggleEventItem('${s.id}')">
-        <span class="pick-ic" style="background:${ic.chip};color:${ic.ink}"><i class="ti ti-${s.icon || DEFAULT_ICON}" aria-hidden="true"></i></span>
-        <span class="pick-name">${esc(s.name)}</span>
-        <i class="ti ti-${on ? "circle-check" : "circle"} pick-check" aria-hidden="true"></i>
-      </div>`;
-    });
-    html += `</div>`;
+    html += `<div class="grid">` + db.snacks.slice().reverse().map(pickTile).join("") + `</div>`;
   }
   html += `</div>`;
   html += `<div class="btn-row">
@@ -800,23 +819,36 @@ function renderEventForm() {
   view.innerHTML = html;
 }
 
+// datetime-local の値（YYYY-MM-DDTHH:mm）を安全にISO文字列へ。iOS SafariのDate解釈の癖を避けるため手動で組む
+function localInputToISO(v) {
+  if (!v) return null;
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 async function createEvent() {
-  syncEventForm();
-  const f = eventForm;
-  const { data: ev, error: e1 } = await sb.from("events")
-    .insert({ event_at: f.event_at ? new Date(f.event_at).toISOString() : null, note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
-    .select().single();
-  if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
-  const items = f.itemIds.map((id, i) => {
-    const s = db.snacks.find(x => x.id === id);
-    return { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i };
-  });
-  if (items.length) {
-    const { error: e2 } = await sb.from("event_items").insert(items);
-    if (e2) { console.error(e2); toast("メニューの保存に失敗しました"); }
+  try {
+    syncEventForm();
+    const f = eventForm;
+    const { data: ev, error: e1 } = await sb.from("events")
+      .insert({ event_at: localInputToISO(f.event_at), note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
+      .select().single();
+    if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
+    const items = f.itemIds
+      .map((id, i) => { const s = db.snacks.find(x => x.id === id); return s ? { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i } : null; })
+      .filter(Boolean);
+    if (items.length) {
+      const { error: e2 } = await sb.from("event_items").insert(items);
+      if (e2) { console.error(e2); toast("メニューの保存に失敗しました"); }
+    }
+    toast("開店しました");
+    await openEventDetail(ev.id);
+  } catch (err) {
+    console.error(err);
+    toast("開店に失敗しました");
   }
-  toast("開店しました");
-  await openEventDetail(ev.id);
 }
 
 /* ---------- 開催詳細（共有・開閉・お品書き・オーダー） ---------- */
