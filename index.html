@@ -351,7 +351,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v3.7";
+const APP_VERSION = "v3.8";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -814,7 +814,7 @@ function renderEventForm() {
   html += `</div>`;
   html += `<div class="btn-row">
     <button class="btn btn-secondary" onclick="goEvents()">やめる</button>
-    <button class="btn btn-primary" onclick="createEvent()">開店する</button>
+    <button class="btn btn-primary" onclick="dbg('X: onclick発火'); createEvent()">開店する</button>
   </div>`;
   view.innerHTML = html;
 }
@@ -1047,6 +1047,14 @@ function renderGuest() {
   });
   document.getElementById("guestView").innerHTML = html;
 }
+
+/* 診断用：JavaScriptエラーを帯に表示（onclickが落ちていないか確認） */
+window.addEventListener("error", function (e) {
+  dbg("JSエラー: " + (e.message || String(e.error || "")) + (e.lineno ? " (行" + e.lineno + ")" : ""));
+});
+window.addEventListener("unhandledrejection", function (e) {
+  dbg("Promise拒否: " + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+});
 
 /* 診断用：全タップの対象を帯に記録（開店ボタンに本当にタップが届いているか確認） */
 document.addEventListener("click", function (e) {
