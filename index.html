@@ -351,7 +351,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v3.2";
+const APP_VERSION = "v3.3";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -830,24 +830,28 @@ function localInputToISO(v) {
 
 async function createEvent() {
   try {
+    window.alert("A: 開始");
     syncEventForm();
     const f = eventForm;
-    const { data: ev, error: e1 } = await sb.from("events")
-      .insert({ event_at: localInputToISO(f.event_at), note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
+    const iso = localInputToISO(f.event_at);
+    window.alert("B: 日時=" + f.event_at + " / iso=" + iso + " / 品数=" + f.itemIds.length);
+    const res = await sb.from("events")
+      .insert({ event_at: iso, note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
       .select().single();
-    if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
+    window.alert("C: insert完了 err=" + (res.error ? (res.error.message + " / " + (res.error.code || "")) : "なし") + " / id=" + (res.data ? res.data.id : "null"));
+    if (res.error || !res.data) { toast("開店に失敗しました"); return; }
+    const ev = res.data;
     const items = f.itemIds
       .map((id, i) => { const s = db.snacks.find(x => x.id === id); return s ? { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i } : null; })
       .filter(Boolean);
     if (items.length) {
-      const { error: e2 } = await sb.from("event_items").insert(items);
-      if (e2) { console.error(e2); toast("メニューの保存に失敗しました"); }
+      const r2 = await sb.from("event_items").insert(items);
+      if (r2.error) { window.alert("D: メニュー保存エラー=" + r2.error.message); toast("メニューの保存に失敗しました"); }
     }
     toast("開店しました");
     await openEventDetail(ev.id);
   } catch (err) {
-    console.error(err);
-    toast("開店に失敗しました");
+    window.alert("エラー: " + (err && err.message ? err.message : String(err)));
   }
 }
 
