@@ -351,7 +351,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v3.6";
+const APP_VERSION = "v3.7";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -845,9 +845,8 @@ function withTimeout(p, ms, label) {
 }
 
 async function createEvent() {
-  const bar = document.getElementById("dbgbar"); if (bar) bar.textContent = "";
   try {
-    dbg("A: 開始");
+    dbg("A: 開始 createEvent");
     syncEventForm();
     const f = eventForm;
     let s = null;
@@ -1048,6 +1047,13 @@ function renderGuest() {
   });
   document.getElementById("guestView").innerHTML = html;
 }
+
+/* 診断用：全タップの対象を帯に記録（開店ボタンに本当にタップが届いているか確認） */
+document.addEventListener("click", function (e) {
+  var t = e.target || {};
+  var cls = (t.className && typeof t.className === "string") ? t.className : "";
+  dbg("TAP→ " + (t.tagName || "?") + (t.id ? "#" + t.id : "") + (cls ? " ." + cls.replace(/\s+/g, ".") : "") + " | " + ((t.textContent || "").trim().slice(0, 16)));
+}, true);
 
 /* ---------- 起動時の分岐：ゲスト（?event=…）かホストか ---------- */
 const _params = new URLSearchParams(window.location.search);
