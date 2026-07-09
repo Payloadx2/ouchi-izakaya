@@ -351,7 +351,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v3.8";
+const APP_VERSION = "v3.9";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -814,7 +814,7 @@ function renderEventForm() {
   html += `</div>`;
   html += `<div class="btn-row">
     <button class="btn btn-secondary" onclick="goEvents()">やめる</button>
-    <button class="btn btn-primary" onclick="dbg('X: onclick発火'); createEvent()">開店する</button>
+    <button class="btn btn-primary" onclick="submitEvent()">開店する</button>
   </div>`;
   view.innerHTML = html;
 }
@@ -828,56 +828,27 @@ function localInputToISO(v) {
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-// 画面上部に必ず出るデバッグ表示（iOS standaloneでalertが効かない対策）
-function dbg(msg) {
-  let el = document.getElementById("dbgbar");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "dbgbar";
-    el.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;background:rgba(20,20,20,.93);color:#fff;font-size:12px;line-height:1.5;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;white-space:pre-wrap;max-height:70vh;overflow:auto;";
-    document.body.appendChild(el);
-  }
-  el.textContent += (el.textContent ? "\n" : "") + msg;
-}
-// 指定ミリ秒で応答が無ければ例外にする（ハング検知）
-function withTimeout(p, ms, label) {
-  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT:" + label)), ms))]);
-}
-
-async function createEvent() {
+// ※関数名は document.createEvent と衝突するため createEvent にしないこと（インラインonclickが誤爆する）
+async function submitEvent() {
   try {
-    dbg("A: 開始 createEvent");
     syncEventForm();
     const f = eventForm;
-    let s = null;
-    try { const sr = await withTimeout(sb.auth.getSession(), 6000, "getSession"); s = sr.data.session; }
-    catch (e) { dbg("Sess取得エラー: " + e.message); }
-    dbg("Sess: " + (s ? ("あり exp=" + s.expires_at + " now=" + Math.floor(Date.now() / 1000)) : "なし!"));
-    const iso = localInputToISO(f.event_at);
-    dbg("B: iso=" + iso + " 品数=" + f.itemIds.length);
-    let res;
-    try {
-      res = await withTimeout(
-        sb.from("events").insert({ event_at: iso, note: (f.note || "").trim(), drinks: f.drinks, is_open: true }).select().single(),
-        8000, "insert"
-      );
-    } catch (e) { dbg("C-例外: " + e.message); toast("開店に失敗しました"); return; }
-    dbg("C: err=" + (res.error ? (res.error.message + " [" + (res.error.code || "") + "]") : "なし") + " id=" + (res.data ? res.data.id : "null"));
-    if (res.error || !res.data) { toast("開店に失敗しました"); return; }
-    const ev = res.data;
+    const { data: ev, error: e1 } = await sb.from("events")
+      .insert({ event_at: localInputToISO(f.event_at), note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
+      .select().single();
+    if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
     const items = f.itemIds
-      .map((id, i) => { const sn = db.snacks.find(x => x.id === id); return sn ? { event_id: ev.id, snack_id: sn.id, name: sn.name, icon: sn.icon || "", position: i } : null; })
+      .map((id, i) => { const s = db.snacks.find(x => x.id === id); return s ? { event_id: ev.id, snack_id: s.id, name: s.name, icon: s.icon || "", position: i } : null; })
       .filter(Boolean);
     if (items.length) {
-      const r2 = await sb.from("event_items").insert(items);
-      dbg("D: メニュー err=" + (r2.error ? r2.error.message : "なし"));
-      if (r2.error) toast("メニューの保存に失敗しました");
+      const { error: e2 } = await sb.from("event_items").insert(items);
+      if (e2) { console.error(e2); toast("メニューの保存に失敗しました"); }
     }
-    dbg("E: 完了→詳細へ");
     toast("開店しました");
     await openEventDetail(ev.id);
   } catch (err) {
-    dbg("CATCH: " + (err && err.message ? err.message : String(err)));
+    console.error(err);
+    toast("開店に失敗しました");
   }
 }
 
@@ -1047,21 +1018,6 @@ function renderGuest() {
   });
   document.getElementById("guestView").innerHTML = html;
 }
-
-/* 診断用：JavaScriptエラーを帯に表示（onclickが落ちていないか確認） */
-window.addEventListener("error", function (e) {
-  dbg("JSエラー: " + (e.message || String(e.error || "")) + (e.lineno ? " (行" + e.lineno + ")" : ""));
-});
-window.addEventListener("unhandledrejection", function (e) {
-  dbg("Promise拒否: " + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
-});
-
-/* 診断用：全タップの対象を帯に記録（開店ボタンに本当にタップが届いているか確認） */
-document.addEventListener("click", function (e) {
-  var t = e.target || {};
-  var cls = (t.className && typeof t.className === "string") ? t.className : "";
-  dbg("TAP→ " + (t.tagName || "?") + (t.id ? "#" + t.id : "") + (cls ? " ." + cls.replace(/\s+/g, ".") : "") + " | " + ((t.textContent || "").trim().slice(0, 16)));
-}, true);
 
 /* ---------- 起動時の分岐：ゲスト（?event=…）かホストか ---------- */
 const _params = new URLSearchParams(window.location.search);
