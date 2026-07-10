@@ -286,7 +286,11 @@
   .g-item-name { flex: 1; font-size: 16.5px; letter-spacing: .03em; }
   .g-order { flex: 0 0 auto; font-family: inherit; font-size: 13px; padding: 6px 17px; border-radius: 999px; border: 1px solid #B5453A; background: transparent; color: #B5453A; cursor: pointer; white-space: nowrap; }
   .g-order.on { background: #B5453A; color: #FBF5E6; }
+  .g-order.ordered { background: #A6822F; border-color: #A6822F; color: #FBF5E6; }   /* 送信済み（確定） */
+  .g-order.cancel { background: transparent; border: 1px dashed #B5453A; color: #B5453A; } /* 取消予定 */
   .g-order:active { transform: scale(.97); }
+  .g-item-cancel { opacity: .6; }
+  .g-item-cancel .g-item-name { text-decoration: line-through; }
   .g-count { font-size: 12px; color: #8A7A58; }
   .g-orderers { font-size: 12.5px; color: #8A6A3A; margin-top: 8px; line-height: 1.7; }
   .g-orderers.g-none { color: #BAAB80; }
@@ -379,7 +383,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.12";
+const APP_VERSION = "v4.14";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -1128,11 +1132,16 @@ async function submitOrder() {
   // 名前を最新に反映
   await sb.from("orders").update({ guest_name: name }).eq("event_id", guestEventId).eq("guest_id", myGuestId);
 
-  // ホストへ通知（追加があったときだけ・送信の瞬間に確実に飛ぶ）
-  if (toAdd.length) {
-    const first = (guestData.items || []).find(it => it.id === toAdd[0]);
+  // ホストへ通知（追加・取消どちらでも1通知にまとめて・送信の瞬間に確実に飛ぶ）
+  if (toAdd.length || toDel.length) {
+    const addFirst = (guestData.items || []).find(it => it.id === toAdd[0]);
+    const delFirst = (guestData.items || []).find(it => it.id === toDel[0]);
     sb.functions.invoke("notify-order", {
-      body: { event_id: guestEventId, guest_name: name, count: toAdd.length, item_name: first ? first.name : "" }
+      body: {
+        event_id: guestEventId, guest_name: name,
+        add_count: toAdd.length, add_name: addFirst ? addFirst.name : "",
+        del_count: toDel.length, del_name: delFirst ? delFirst.name : ""
+      }
     }).catch(function () {});
   }
 
@@ -1157,6 +1166,7 @@ function renderGuest() {
   }
   html += `<div class="g-namebox"><label>お名前</label>
     <input type="text" id="g-name-input" placeholder="ここに入力" value="${esc(guestName)}" autocomplete="off" autocorrect="off" oninput="onGuestName(this.value)" /></div>`;
+  const server = serverMineSet();          // 送信済み（サーバに確定済み）の自分の注文
   const limit = guestData.event.max_per_guest || 0;
   if (limit > 0 && !closed) {
     html += `<div class="g-limit">ご注文はお一人 ${limit}品 まで（あと ${Math.max(0, limit - cart.size)}品）</div>`;
@@ -1164,27 +1174,52 @@ function renderGuest() {
   if (!items.length) html += `<div class="g-empty">まだメニューがありません。</div>`;
   items.forEach(it => {
     const ords = orders.filter(o => o.item_id === it.id);
-    const picked = cart.has(it.id);
-    html += `<div class="g-item"><div class="g-item-head">
+    const ordered = server.has(it.id);     // 送信済みか
+    const picked = cart.has(it.id);        // 今の選択か
+    let btn, itemCls = "";
+    if (closed) {
+      btn = `<span class="g-count">${ords.length ? ords.length + "件" : ""}</span>`;
+    } else if (ordered && picked) {
+      btn = `<button class="g-order ordered" onclick="toggleCart('${it.id}')">注文済み ✓</button>`;
+    } else if (ordered && !picked) {
+      btn = `<button class="g-order cancel" onclick="toggleCart('${it.id}')">取り消します</button>`;
+      itemCls = "g-item-cancel";
+    } else if (picked) {
+      btn = `<button class="g-order on" onclick="toggleCart('${it.id}')">選択中 ✓</button>`;
+    } else {
+      btn = `<button class="g-order" onclick="toggleCart('${it.id}')">選ぶ</button>`;
+    }
+    html += `<div class="g-item ${itemCls}"><div class="g-item-head">
       <span class="g-item-name">${esc(it.name)}</span>
-      ${closed
-        ? `<span class="g-count">${ords.length ? ords.length + "件" : ""}</span>`
-        : `<button class="g-order ${picked ? "on" : ""}" onclick="toggleCart('${it.id}')">${picked ? "選択中 ✓" : "選ぶ"}</button>`}
+      ${btn}
       </div>
       ${it.recipe_url ? `<a class="g-recipe" href="${esc(it.recipe_url)}" target="_blank" rel="noopener"><i class="ti ti-external-link" aria-hidden="true"></i> レシピを見る</a>` : ""}
       ${ords.length ? `<div class="g-orderers">${ords.map(o => esc(o.guest_name || "名無し")).join("、")}</div>` : `<div class="g-orderers g-none">まだ誰も頼んでいません</div>`}
     </div>`;
   });
 
-  // 送信バー（未送信を目立たせて押し忘れ防止）
+  // 送信バー（未送信の追加・取消をはっきり出して押し忘れ防止）
   if (!closed && items.length) {
-    const server = serverMineSet();
-    const dirty = [...cart].some(id => !server.has(id)) || [...server].some(id => !cart.has(id));
-    const n = cart.size;
+    const toAdd = [...cart].filter(id => !server.has(id)).length;
+    const toDel = [...server].filter(id => !cart.has(id)).length;
+    const dirty = toAdd > 0 || toDel > 0;
     let msg, label, cls;
-    if (dirty) { msg = "未送信の注文があります"; label = `注文を送信（${n}品）`; cls = ""; }
-    else if (n > 0) { msg = "送信済み ✓"; label = `送信済み（${n}品）`; cls = "clean"; }
-    else { msg = "食べたいものを選んでね"; label = "注文を送信"; cls = "clean"; }
+    if (dirty) {
+      const parts = [];
+      if (toAdd) parts.push(`注文${toAdd}品`);
+      if (toDel) parts.push(`取消${toDel}品`);
+      msg = "未送信：" + parts.join("・");
+      label = "送信する";
+      cls = "";
+    } else if (server.size > 0) {
+      msg = `送信済み ✓（${server.size}品）`;
+      label = "送信済み";
+      cls = "clean";
+    } else {
+      msg = "食べたいものを選んでね";
+      label = "送信する";
+      cls = "clean";
+    }
     html += `<div class="g-barspace"></div>
       <div class="g-submitbar ${dirty ? "dirty" : ""}"><div class="g-submitbar-inner">
         <span class="g-submitmsg">${msg}</span>
