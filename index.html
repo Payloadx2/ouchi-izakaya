@@ -317,7 +317,7 @@
   <button class="logout-btn" onclick="signOut()" aria-label="ログアウト"><i class="ti ti-logout" aria-hidden="true"></i></button>
   <div class="ver" id="ver"></div>
   <h1>🏮 おうち居酒屋</h1>
-  <div class="sub">おつまみレパートリー</div>
+  <div class="sub" id="headerSub">自分のおつまみ料理レパートリーを記録・管理</div>
 </header>
 
 <main>
@@ -346,7 +346,7 @@
   <div class="auth-card">
     <div class="auth-icon">🏮</div>
     <div class="auth-title">おうち居酒屋</div>
-    <div class="auth-sub">おつまみレパートリーを記録して、<br>どの端末でも見られるように。</div>
+    <div class="auth-sub">自分のおつまみ料理レパートリーを記録・管理。<br>家飲みに招待して、食べたいおつまみをリクエストしてもらおう。</div>
     <button class="auth-btn" onclick="signIn()"><i class="ti ti-brand-google" aria-hidden="true"></i> Googleでログイン</button>
   </div>
 </div>
@@ -383,7 +383,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.14";
+const APP_VERSION = "v4.16";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -744,6 +744,11 @@ function showScreen(s) {
     b.classList.toggle("active", b.dataset.screen === (s === "repertoire" ? "repertoire" : "events")));
   document.getElementById("fab").classList.toggle("hidden", s !== "repertoire");
   if (s !== "repertoire") document.getElementById("countLabel").textContent = "";
+  // トップバーのサブ：レパートリー系か開店系かで出し分け
+  const sub = document.getElementById("headerSub");
+  if (sub) sub.textContent = (s === "repertoire")
+    ? "自分のおつまみ料理レパートリーを記録・管理"
+    : "家飲みに招待して、食べたいおつまみをリクエストしてもらおう";
   routeRender();
 }
 function routeRender() {
