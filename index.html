@@ -290,7 +290,21 @@
   .g-count { font-size: 12px; color: #8A7A58; }
   .g-orderers { font-size: 12.5px; color: #8A6A3A; margin-top: 8px; line-height: 1.7; }
   .g-orderers.g-none { color: #BAAB80; }
+  .g-mine-tag { display: inline-block; font-size: 11px; color: #A5342E; margin-left: 6px; }
   .g-empty { text-align: center; color: #8A7A58; padding: 40px 20px; }
+  /* 送信バー（案A：まとめて送信） */
+  .g-barspace { height: 96px; }
+  .g-submitbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: rgba(251,245,230,.97); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    border-top: 1px solid #D8C8A0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .g-submitbar-inner { max-width: 600px; margin: 0 auto; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 12px; }
+  .g-submitmsg { flex: 1; font-size: 13px; line-height: 1.5; color: #8A7A58; font-family: inherit; }
+  .g-submitbar.dirty { border-top-color: #B5453A; box-shadow: 0 -3px 18px rgba(181,69,58,.20); }
+  .g-submitbar.dirty .g-submitmsg { color: #A5342E; font-weight: 600; }
+  .g-submitbtn { flex: 0 0 auto; font-family: inherit; font-size: 15px; font-weight: 600; padding: 12px 22px; border-radius: 999px; border: none; background: #B5453A; color: #FBF5E6; cursor: pointer; }
+  .g-submitbtn:active { transform: scale(.98); }
+  .g-submitbtn.clean { background: #C3B78F; }
+  .g-submitbtn:disabled { opacity: .8; cursor: default; }
 </style>
 </head>
 <body>
@@ -365,7 +379,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.4";
+const APP_VERSION = "v4.6";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -718,6 +732,7 @@ function toast(msg) {
 let screen = "repertoire";
 let eventsList = [];
 let eventData = null; // 開催詳細（get_event の結果）
+let pendingEventId = null; // 通知から開いた時に表示すべき開催ID
 
 function showScreen(s) {
   screen = s;
@@ -988,6 +1003,11 @@ async function onSession(session) {
   if (session) {
     authGate.classList.add("hidden");         // ログイン済み → アプリ表示
     if (!started) { started = true; await init(); }
+    if (pendingEventId) {                     // 通知から起動 → その開催詳細へ
+      const id = pendingEventId; pendingEventId = null;
+      history.replaceState({}, "", window.location.pathname);
+      openEventDetail(id);
+    }
   } else {
     authGate.classList.remove("hidden");      // 未ログイン → ログイン画面
     started = false;
@@ -998,6 +1018,12 @@ async function onSession(session) {
 let guestData = null;
 let guestName = "";
 let myGuestId = null;
+let cart = new Set();          // 未送信の選択（ローカル）。送信ボタンで確定する
+
+function cartKey() { return "ouchi_cart_" + guestEventId; }
+function saveCart() { try { localStorage.setItem(cartKey(), JSON.stringify([...cart])); } catch (e) {} }
+function loadCartStore() { try { const s = localStorage.getItem(cartKey()); return s ? new Set(JSON.parse(s)) : null; } catch (e) { return null; } }
+function serverMineSet() { return new Set((guestData.orders || []).filter(o => o.guest_id === myGuestId).map(o => o.item_id)); }
 
 async function initGuest() {
   document.body.classList.add("guest-mode");
@@ -1011,19 +1037,39 @@ async function initGuest() {
   }
   const u = (await sb.auth.getUser()).data.user;
   myGuestId = u ? u.id : null;
-  await loadGuestEvent();
+  const ok = await loadGuestEvent();
+  if (!ok) return;
+  // カゴの初期値：未送信の選択が localStorage に残っていればそれを、無ければ確定済みの注文を反映
+  const validIds = new Set((guestData.items || []).map(it => it.id));
+  const saved = loadCartStore();
+  cart = saved ? new Set([...saved].filter(id => validIds.has(id))) : serverMineSet();
+  renderGuest();
 }
 async function loadGuestEvent() {
   const { data, error } = await sb.rpc("get_event", { p_event_id: guestEventId });
-  if (error || !data || !data.event) { console.error(error); renderGuestMsg("この開催は見つかりませんでした。"); return; }
+  if (error || !data || !data.event) { console.error(error); renderGuestMsg("この開催は見つかりませんでした。"); return false; }
   guestData = data;
-  renderGuest();
+  return true;
 }
 function onGuestName(v) {
   guestName = v;
   try { localStorage.setItem("ouchi_guest_name", v); } catch (e) {}
 }
-async function toggleOrder(itemId) {
+// タップ＝カゴに入れる/出すだけ（この時点ではまだ注文されない）
+function toggleCart(itemId) {
+  if (guestData.event && !guestData.event.is_open) return;
+  if (cart.has(itemId)) {
+    cart.delete(itemId);
+  } else {
+    const limit = guestData.event.max_per_guest || 0;
+    if (limit > 0 && cart.size >= limit) { toast(`ご注文はお一人 ${limit}品 までです`); return; }
+    cart.add(itemId);
+  }
+  saveCart();
+  renderGuest();
+}
+// 送信ボタン：カゴの内容を確定してDBへ。追加があればこの瞬間にホストへ1通知
+async function submitOrder() {
   const name = (guestName || "").trim();
   if (!name) {
     toast("お名前を入れてください");
@@ -1031,21 +1077,40 @@ async function toggleOrder(itemId) {
     if (el) { el.classList.add("g-name-need"); el.focus(); }
     return;
   }
-  const mine = guestData.orders.find(o => o.item_id === itemId && o.guest_id === myGuestId);
-  if (mine) {
-    const { error } = await sb.from("orders").delete().eq("id", mine.id);
-    if (error) { console.error(error); toast("取り消せませんでした"); return; }
-  } else {
-    const limit = guestData.event.max_per_guest || 0;
-    const myCount = guestData.orders.filter(o => o.guest_id === myGuestId).length;
-    if (limit > 0 && myCount >= limit) { toast(`ご注文はお一人 ${limit}品 までです`); return; }
-    const { error } = await sb.from("orders").insert({ event_id: guestEventId, item_id: itemId, guest_name: name });
-    if (error) { console.error(error); toast("注文できませんでした"); return; }
-    // ホストへプッシュ通知（結果は待たない・失敗しても注文は成立）
-    sb.functions.invoke("notify-order", { body: { event_id: guestEventId, item_id: itemId, guest_name: name } }).catch(function () {});
+  const server = serverMineSet();
+  const toAdd = [...cart].filter(id => !server.has(id));
+  const toDel = [...server].filter(id => !cart.has(id));
+  if (!toAdd.length && !toDel.length) { toast("変更はありません"); return; }
+
+  const btn = document.getElementById("g-submitbtn");
+  if (btn) { btn.disabled = true; btn.textContent = "送信中…"; }
+
+  // 取り消し（自分の該当注文を削除）
+  for (const itemId of toDel) {
+    const row = (guestData.orders || []).find(o => o.guest_id === myGuestId && o.item_id === itemId);
+    if (row) { const { error } = await sb.from("orders").delete().eq("id", row.id); if (error) console.error(error); }
   }
+  // 追加
+  if (toAdd.length) {
+    const rows = toAdd.map(itemId => ({ event_id: guestEventId, item_id: itemId, guest_name: name }));
+    const { error } = await sb.from("orders").insert(rows);
+    if (error) { console.error(error); toast("送信できませんでした"); if (btn) btn.disabled = false; return; }
+  }
+  // 名前を最新に反映
   await sb.from("orders").update({ guest_name: name }).eq("event_id", guestEventId).eq("guest_id", myGuestId);
+
+  // ホストへ通知（追加があったときだけ・送信の瞬間に確実に飛ぶ）
+  if (toAdd.length) {
+    const first = (guestData.items || []).find(it => it.id === toAdd[0]);
+    sb.functions.invoke("notify-order", {
+      body: { event_id: guestEventId, guest_name: name, count: toAdd.length, item_name: first ? first.name : "" }
+    }).catch(function () {});
+  }
+
   await loadGuestEvent();
+  cart = serverMineSet(); saveCart();
+  renderGuest();
+  toast("注文を送信しました");
 }
 function renderGuestMsg(msg) { document.getElementById("guestView").innerHTML = `<div class="g-empty">${esc(msg)}</div>`; }
 function renderGuest() {
@@ -1065,23 +1130,38 @@ function renderGuest() {
     <input type="text" id="g-name-input" placeholder="ここに入力" value="${esc(guestName)}" autocomplete="off" autocorrect="off" oninput="onGuestName(this.value)" /></div>`;
   const limit = guestData.event.max_per_guest || 0;
   if (limit > 0 && !closed) {
-    const myCount = orders.filter(o => o.guest_id === myGuestId).length;
-    html += `<div class="g-limit">ご注文はお一人 ${limit}品 まで（あと ${Math.max(0, limit - myCount)}品）</div>`;
+    html += `<div class="g-limit">ご注文はお一人 ${limit}品 まで（あと ${Math.max(0, limit - cart.size)}品）</div>`;
   }
   if (!items.length) html += `<div class="g-empty">まだメニューがありません。</div>`;
   items.forEach(it => {
     const ords = orders.filter(o => o.item_id === it.id);
-    const mine = ords.some(o => o.guest_id === myGuestId);
+    const picked = cart.has(it.id);
     html += `<div class="g-item"><div class="g-item-head">
       <span class="g-item-name">${esc(it.name)}</span>
       ${closed
         ? `<span class="g-count">${ords.length ? ords.length + "件" : ""}</span>`
-        : `<button class="g-order ${mine ? "on" : ""}" onclick="toggleOrder('${it.id}')">${mine ? "頼んだ ✓" : "頼む"}</button>`}
+        : `<button class="g-order ${picked ? "on" : ""}" onclick="toggleCart('${it.id}')">${picked ? "選択中 ✓" : "選ぶ"}</button>`}
       </div>
       ${it.recipe_url ? `<a class="g-recipe" href="${esc(it.recipe_url)}" target="_blank" rel="noopener"><i class="ti ti-external-link" aria-hidden="true"></i> レシピを見る</a>` : ""}
       ${ords.length ? `<div class="g-orderers">${ords.map(o => esc(o.guest_name || "名無し")).join("、")}</div>` : `<div class="g-orderers g-none">まだ誰も頼んでいません</div>`}
     </div>`;
   });
+
+  // 送信バー（未送信を目立たせて押し忘れ防止）
+  if (!closed && items.length) {
+    const server = serverMineSet();
+    const dirty = [...cart].some(id => !server.has(id)) || [...server].some(id => !cart.has(id));
+    const n = cart.size;
+    let msg, label, cls;
+    if (dirty) { msg = "未送信の注文があります"; label = `注文を送信（${n}品）`; cls = ""; }
+    else if (n > 0) { msg = "送信済み ✓"; label = `送信済み（${n}品）`; cls = "clean"; }
+    else { msg = "食べたいものを選んでね"; label = "注文を送信"; cls = "clean"; }
+    html += `<div class="g-barspace"></div>
+      <div class="g-submitbar ${dirty ? "dirty" : ""}"><div class="g-submitbar-inner">
+        <span class="g-submitmsg">${msg}</span>
+        <button id="g-submitbtn" class="g-submitbtn ${cls}" onclick="submitOrder()" ${dirty ? "" : "disabled"}>${label}</button>
+      </div></div>`;
+  }
   document.getElementById("guestView").innerHTML = html;
 }
 
@@ -1128,7 +1208,17 @@ const guestEventId = _params.get("event");
 if (guestEventId) {
   initGuest();
 } else {
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.error("SW registration failed", e));
+  pendingEventId = _params.get("ev");   // 通知から開いた場合の開催ID（?ev=…）
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(e => console.error("SW registration failed", e));
+    // 通知タップ時、起動中のアプリに開催IDが届く → その詳細へ
+    navigator.serviceWorker.addEventListener("message", (e) => {
+      if (e.data && e.data.type === "open-event" && e.data.eventId) {
+        if (started) openEventDetail(e.data.eventId);
+        else pendingEventId = e.data.eventId;
+      }
+    });
+  }
   sb.auth.onAuthStateChange((_event, session) => { onSession(session); });
 }
 </script>
