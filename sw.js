@@ -4,6 +4,26 @@
 self.addEventListener("install", function () { self.skipWaiting(); });
 self.addEventListener("activate", function (event) { event.waitUntil(self.clients.claim()); });
 
+// ページ読み込み（HTML）は常にネットワーク優先で最新を取得。
+// ホーム画面アイコン起動と通知タップ起動でHTMLのキャッシュが分かれ、古い版が出る問題への対策。
+// オフライン時のみ直近に取得できたHTMLへフォールバックする。
+self.addEventListener("fetch", function (event) {
+  const req = event.request;
+  if (req.mode !== "navigate") return; // HTML以外（JS/CSS/画像/CDN）はブラウザ任せ
+  event.respondWith(
+    fetch(req.url, { cache: "no-store" })
+      .then(function (res) {
+        const copy = res.clone();
+        caches.open("oi-html").then(function (c) { c.put("__index__", copy); }).catch(function () {});
+        return res;
+      })
+      .catch(function () {
+        return caches.open("oi-html").then(function (c) { return c.match("__index__"); })
+          .then(function (r) { return r || Response.error(); });
+      })
+  );
+});
+
 // 「起動時に開くべき開催ID」をCacheに保存/消去（タスクキルからの復帰用）
 function setPendingEvent(id) {
   if (!id) return Promise.resolve();
