@@ -197,6 +197,9 @@
   .back-btn { background: none; border: none; color: var(--ink); font-size: 22px; cursor: pointer; padding: 0; display: inline-flex; margin-left: -4px; }
   .btn-open { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; background: var(--coral); color: #fff; border: none; border-radius: 999px; padding: 8px 15px; font-size: 13px; font-weight: 500; cursor: pointer; }
   .btn-open i { font-size: 16px; }
+  .notify-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; background: var(--surface); border: 1px solid var(--line); color: var(--sub); border-radius: 10px; padding: 11px; font-size: 13px; cursor: pointer; margin-bottom: 14px; }
+  .notify-btn i { font-size: 17px; }
+  .notify-btn.on { background: rgba(232,101,79,.1); border-color: rgba(232,101,79,.4); color: var(--coral-ink); }
 
   /* 開催カード */
   .event-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; cursor: pointer; }
@@ -362,7 +365,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.2";
+const APP_VERSION = "v4.3";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -749,6 +752,7 @@ async function fetchEvents() {
 function renderEvents() {
   let html = `<div class="screen-head"><h2>開店</h2>
     <button class="btn-open" onclick="openEventForm()"><i class="ti ti-plus" aria-hidden="true"></i> 新しく開店</button></div>`;
+  html += notifyControl();
   if (!eventsList.length) {
     html += `<div class="empty"><div class="big">まだ開店予定はありません</div>「新しく開店」から、メニューを組んで<br>友達を招きましょう。</div>`;
   } else {
@@ -1079,12 +1083,50 @@ function renderGuest() {
   document.getElementById("guestView").innerHTML = html;
 }
 
+/* ---------- Web Push（注文通知：ホスト向け） ---------- */
+const VAPID_PUBLIC_KEY = "BK9rpCtMplMv1OwFboPFb2ZfFV7SM8WKKzgl9WqPmZbGXxhefDja4iWnbVNRJIB9fYZ50xKllKHLIlZIFDclR30";
+const pushSupported = ("serviceWorker" in navigator) && ("PushManager" in window) && ("Notification" in window);
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+function notifyControl() {
+  if (!pushSupported) return "";
+  const on = Notification.permission === "granted";
+  return `<button class="notify-btn ${on ? "on" : ""}" onclick="enableNotifications()"><i class="ti ti-bell" aria-hidden="true"></i> ${on ? "注文通知：オン" : "注文の通知を受け取る"}</button>`;
+}
+async function enableNotifications() {
+  if (!pushSupported) { toast("この端末は通知に対応していません"); return; }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { toast("通知が許可されませんでした"); return; }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    }
+    const j = sub.toJSON();
+    const { error } = await sb.from("push_subscriptions").upsert(
+      { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth_key: j.keys.auth },
+      { onConflict: "endpoint" }
+    );
+    if (error) { console.error(error); toast("通知の登録に失敗しました"); return; }
+    toast("注文通知をオンにしました");
+    if (screen === "events") renderEvents();
+  } catch (e) { console.error(e); toast("通知の設定に失敗しました"); }
+}
+
 /* ---------- 起動時の分岐：ゲスト（?event=…）かホストか ---------- */
 const _params = new URLSearchParams(window.location.search);
 const guestEventId = _params.get("event");
 if (guestEventId) {
   initGuest();
 } else {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.error("SW registration failed", e));
   sb.auth.onAuthStateChange((_event, session) => { onSession(session); });
 }
 </script>
