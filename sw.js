@@ -26,7 +26,19 @@ self.addEventListener("notificationclick", function (event) {
           return c.focus();
         }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url); // 閉じてる時は ?ev=… で起動
+      // 開いている画面が無い（タスクキル等）→ 開催IDをCacheに残してから起動。
+      // iOSはPWA起動時にURLの?ev=を落とすことがあるので、起動後にページ側がCacheを読む。
+      return setPendingEvent(eventId).then(function () {
+        if (self.clients.openWindow) return self.clients.openWindow(url);
+      });
     })
   );
 });
+
+// 通知タップ時の「開くべき開催ID」をCacheに保存（起動したページが読む）
+function setPendingEvent(id) {
+  if (!id) return Promise.resolve();
+  return caches.open("oi-nav").then(function (c) {
+    return c.put("/__pending_event__", new Response(JSON.stringify({ id: id, ts: Date.now() })));
+  });
+}

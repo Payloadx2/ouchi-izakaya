@@ -379,7 +379,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.6";
+const APP_VERSION = "v4.7";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -915,6 +915,20 @@ async function openEventDetail(id) {
 }
 function shareUrl() { return window.location.origin + window.location.pathname + "?event=" + eventData._id; }
 
+// タスクキル状態から通知で起動したとき、SWがCacheに残した開催IDを読んで詳細へ
+async function consumePendingEventFromCache() {
+  try {
+    const c = await caches.open("oi-nav");
+    const res = await c.match("/__pending_event__");
+    if (!res) return;
+    await c.delete("/__pending_event__");
+    const { id, ts } = await res.json();
+    if (!id || (Date.now() - (ts || 0) > 120000)) return; // 2分より古い指定は無視
+    if (started) openEventDetail(id);
+    else pendingEventId = id;
+  } catch (e) { /* Cache未対応などは無視 */ }
+}
+
 function renderEventDetail() {
   const d = eventData;
   if (!d || !d.event) { view.innerHTML = `<div class="empty">開催が見つかりません</div>`; return; }
@@ -1208,7 +1222,7 @@ const guestEventId = _params.get("event");
 if (guestEventId) {
   initGuest();
 } else {
-  pendingEventId = _params.get("ev");   // 通知から開いた場合の開催ID（?ev=…）
+  pendingEventId = _params.get("ev");   // 通知から開いた場合の開催ID（?ev=…・バックアップ経路）
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(e => console.error("SW registration failed", e));
     // 通知タップ時、起動中のアプリに開催IDが届く → その詳細へ
@@ -1218,6 +1232,8 @@ if (guestEventId) {
         else pendingEventId = e.data.eventId;
       }
     });
+    // タスクキルからの通知起動：SWがCacheに書いた開催IDを読む（URLの?ev=が落ちても確実）
+    consumePendingEventFromCache();
   }
   sb.auth.onAuthStateChange((_event, session) => { onSession(session); });
 }
