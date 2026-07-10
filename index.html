@@ -379,7 +379,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.9";
+const APP_VERSION = "v4.10";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -951,8 +951,8 @@ async function consumePendingEventFromCache() {
         const age = Date.now() - (ts || 0);
         dbg("pending found id=" + id + " age=" + Math.round(age / 1000) + "s");
         if (id && age <= 60000) {                  // 60秒より古い指定は無視（通常起動での誤遷移防止）
-          if (started) { dbg("→ nav now"); openEventDetail(id); }
-          else { dbg("→ set pending"); pendingEventId = id; }
+          pendingEventId = id;
+          openPendingIfAny();                      // initが終わっていれば即開く。まだならinit完了時に開く
         } else { dbg("→ 無視（古い/空）"); }
         return;
       }
@@ -1028,9 +1028,20 @@ async function toggleEventOpen() {
 
 /* ---------- 起動：Supabaseから読み込んで描画 ---------- */
 async function init() {
+  initDone = false;
   view.innerHTML = `<div class="empty">読み込み中…</div>`;
   await fetchSnacks();
   showScreen("repertoire");
+  initDone = true;
+  openPendingIfAny();   // レパートリー表示の“後”に、通知からの保留があれば開催詳細へ（レースで上書きされない）
+}
+// 通知から渡された開催IDを開く唯一の入口。initが終わってから呼ばれるよう一本化
+function openPendingIfAny() {
+  if (!initDone || !pendingEventId) return;
+  const id = pendingEventId; pendingEventId = null;
+  try { history.replaceState({}, "", window.location.pathname); } catch (e) {}
+  dbg("openPending → " + id);
+  openEventDetail(id);
 }
 
 /* ---------- 認証（ホストのGoogleログイン） ---------- */
@@ -1046,18 +1057,15 @@ async function signIn() {
 async function signOut() { await sb.auth.signOut(); }
 
 let started = false;
+let initDone = false;
 async function onSession(session) {
   if (session) {
     authGate.classList.add("hidden");         // ログイン済み → アプリ表示
     if (!started) { started = true; await init(); }
-    if (pendingEventId) {                     // 通知から起動 → その開催詳細へ
-      const id = pendingEventId; pendingEventId = null;
-      history.replaceState({}, "", window.location.pathname);
-      openEventDetail(id);
-    }
+    else openPendingIfAny();                   // 2回目以降のauthイベントでも、保留があれば開く
   } else {
     authGate.classList.remove("hidden");      // 未ログイン → ログイン画面
-    started = false;
+    started = false; initDone = false;
     db.snacks = [];
   }
 }
@@ -1266,8 +1274,8 @@ if (guestEventId) {
     navigator.serviceWorker.addEventListener("message", (e) => {
       if (e.data && e.data.type === "open-event" && e.data.eventId) {
         dbg("msg open-event " + e.data.eventId);
-        if (started) openEventDetail(e.data.eventId);
-        else pendingEventId = e.data.eventId;
+        pendingEventId = e.data.eventId;
+        openPendingIfAny();
       }
     });
     dbgReadSwVersion("起動時");
