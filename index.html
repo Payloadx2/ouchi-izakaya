@@ -127,10 +127,13 @@
   .field-row .col:first-child { flex: 0 1 auto; }
   .field-row .col:first-child .chip-group { max-width: 240px; }
   .field-row .col-want { flex: 0 0 auto; }
-  .field input[type=text], .field input[type=url], .field input[type=datetime-local], .field textarea {
+  .field input[type=text], .field input[type=url], .field input[type=date], .field select, .field textarea {
     width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 8px;
     padding: 10px 12px; color: var(--ink); font-size: 15px; font-family: inherit;
   }
+  .dt-row { display: flex; gap: 8px; align-items: center; }
+  .dt-row input[type=date] { flex: 1; min-width: 0; }
+  .dt-row select { flex: 0 0 auto; width: auto; }
   .field textarea { resize: vertical; min-height: 44px; }
   .field input.field-invalid { border-color: var(--coral); }
   .field-error { display: none; color: var(--coral-ink); font-size: 12px; margin-top: 6px; }
@@ -359,7 +362,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.1";
+const APP_VERSION = "v4.2";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -769,9 +772,18 @@ function openEventForm() {
 }
 function setEventMax(n) { syncEventForm(); eventForm.maxPerGuest = n; renderEventForm(); }
 function syncEventForm() {
-  const at = document.getElementById("ev-at");
+  const dateEl = document.getElementById("ev-date");
+  if (dateEl) {
+    const d = dateEl.value;
+    if (d) {
+      const h = document.getElementById("ev-hour");
+      const m = document.getElementById("ev-min");
+      eventForm.event_at = d + "T" + String(h ? h.value : 0).padStart(2, "0") + ":" + String(m ? m.value : 0).padStart(2, "0");
+    } else {
+      eventForm.event_at = "";
+    }
+  }
   const note = document.getElementById("ev-note");
-  if (at) eventForm.event_at = at.value;
   if (note) eventForm.note = note.value;
 }
 function toggleEventDrink(k) { syncEventForm(); const i = eventForm.drinks.indexOf(k); if (i >= 0) eventForm.drinks.splice(i,1); else eventForm.drinks.push(k); renderEventForm(); }
@@ -803,8 +815,15 @@ function pickTile(s) {
 function renderEventForm() {
   const f = eventForm;
   let html = `<div class="screen-head"><button class="back-btn" onclick="goEvents()" aria-label="戻る"><i class="ti ti-chevron-left" aria-hidden="true"></i></button><h2>開店の準備</h2></div>`;
+  const dVal = f.event_at ? f.event_at.slice(0, 10) : "";
+  const hVal = f.event_at ? parseInt(f.event_at.slice(11, 13), 10) : 19;
+  const mVal = f.event_at ? parseInt(f.event_at.slice(14, 16), 10) : 0;
   html += `<div class="field"><label>開催日時</label>
-    <input type="datetime-local" id="ev-at" step="300" value="${f.event_at}" /></div>`;
+    <div class="dt-row">
+      <input type="date" id="ev-date" value="${dVal}" />
+      <select id="ev-hour" aria-label="時">${[...Array(24)].map((_, h) => `<option value="${h}" ${h === hVal ? "selected" : ""}>${h}時</option>`).join("")}</select>
+      <select id="ev-min" aria-label="分">${[0,5,10,15,20,25,30,35,40,45,50,55].map(m => `<option value="${m}" ${m === mVal ? "selected" : ""}>${String(m).padStart(2, "0")}分</option>`).join("")}</select>
+    </div></div>`;
   html += `<div class="field"><label>ひとこと(任意)</label>
     <textarea id="ev-note" placeholder="例:今夜20時から軽くやりましょう">${esc(f.note)}</textarea></div>`;
   html += `<div class="field"><label>用意してるお酒</label><div class="chip-group">`;
