@@ -346,7 +346,7 @@
   <div class="auth-card">
     <div class="auth-icon">🏮</div>
     <div class="auth-title">おうち居酒屋</div>
-    <div class="auth-sub">自分のおつまみ料理レパートリーを記録・管理。<br>家飲みに招待して、食べたいおつまみをリクエストしてもらおう。</div>
+    <div class="auth-sub">自分のおつまみ料理レパートリーを記録・管理。<br>家飲みに招待して、おつまみのリクエストをもらおう。</div>
     <button class="auth-btn" onclick="signIn()"><i class="ti ti-brand-google" aria-hidden="true"></i> Googleでログイン</button>
   </div>
 </div>
@@ -383,7 +383,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.16";
+const APP_VERSION = "v4.17";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -748,7 +748,7 @@ function showScreen(s) {
   const sub = document.getElementById("headerSub");
   if (sub) sub.textContent = (s === "repertoire")
     ? "自分のおつまみ料理レパートリーを記録・管理"
-    : "家飲みに招待して、食べたいおつまみをリクエストしてもらおう";
+    : "家飲みに招待して、おつまみのリクエストをもらおう";
   routeRender();
 }
 function routeRender() {
