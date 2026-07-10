@@ -379,7 +379,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.7";
+const APP_VERSION = "v4.8";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -915,17 +915,24 @@ async function openEventDetail(id) {
 }
 function shareUrl() { return window.location.origin + window.location.pathname + "?event=" + eventData._id; }
 
-// タスクキル状態から通知で起動したとき、SWがCacheに残した開催IDを読んで詳細へ
+// タスクキル状態から通知で起動したとき、SWがCacheに残した開催IDを読んで詳細へ。
+// SWの書き込みが起動直後に間に合わないことがあるので数秒ポーリングして拾う。
 async function consumePendingEventFromCache() {
   try {
     const c = await caches.open("oi-nav");
-    const res = await c.match("/__pending_event__");
-    if (!res) return;
-    await c.delete("/__pending_event__");
-    const { id, ts } = await res.json();
-    if (!id || (Date.now() - (ts || 0) > 120000)) return; // 2分より古い指定は無視
-    if (started) openEventDetail(id);
-    else pendingEventId = id;
+    for (let i = 0; i < 12; i++) {                 // 最大約6秒
+      const res = await c.match("/__pending_event__");
+      if (res) {
+        await c.delete("/__pending_event__");
+        const { id, ts } = await res.json();
+        if (id && Date.now() - (ts || 0) <= 60000) { // 60秒より古い指定は無視（通常起動での誤遷移防止）
+          if (started) openEventDetail(id);
+          else pendingEventId = id;
+        }
+        return;
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
   } catch (e) { /* Cache未対応などは無視 */ }
 }
 
