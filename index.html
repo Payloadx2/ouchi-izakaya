@@ -365,7 +365,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.3";
+const APP_VERSION = "v4.4";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -1041,6 +1041,8 @@ async function toggleOrder(itemId) {
     if (limit > 0 && myCount >= limit) { toast(`ご注文はお一人 ${limit}品 までです`); return; }
     const { error } = await sb.from("orders").insert({ event_id: guestEventId, item_id: itemId, guest_name: name });
     if (error) { console.error(error); toast("注文できませんでした"); return; }
+    // ホストへプッシュ通知（結果は待たない・失敗しても注文は成立）
+    sb.functions.invoke("notify-order", { body: { event_id: guestEventId, item_id: itemId, guest_name: name } }).catch(function () {});
   }
   await sb.from("orders").update({ guest_name: name }).eq("event_id", guestEventId).eq("guest_id", myGuestId);
   await loadGuestEvent();
