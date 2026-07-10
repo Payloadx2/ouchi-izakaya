@@ -1,15 +1,8 @@
 /* おうち居酒屋 サービスワーカー（Web Push 受け皿） */
-const SW_VERSION = "sw-4.9";
 
 // 新しいSWを待機させず即座に有効化（iOSでの更新反映を早める）
 self.addEventListener("install", function () { self.skipWaiting(); });
-self.addEventListener("activate", function (event) {
-  event.waitUntil(Promise.all([
-    self.clients.claim(),
-    // どのSWが有効かをページから確認できるよう、バージョンをCacheに書く（デバッグ用）
-    caches.open("oi-nav").then(function (c) { return c.put("/__sw_version__", new Response(SW_VERSION)); }).catch(function () {})
-  ]));
-});
+self.addEventListener("activate", function (event) { event.waitUntil(self.clients.claim()); });
 
 // 「起動時に開くべき開催ID」をCacheに保存/消去（タスクキルからの復帰用）
 function setPendingEvent(id) {
