@@ -266,6 +266,7 @@
   .g-drinks-list { font-size: 17px; color: #8A5227; letter-spacing: .1em; }
   .g-recipe { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #A5533A; text-decoration: none; margin-top: 8px; border-bottom: 1px solid rgba(165,83,58,.35); }
   .g-recipe:active { opacity: .6; }
+  .g-limit { text-align: center; font-size: 12.5px; color: #8A5227; background: rgba(166,130,47,.12); border-radius: 8px; padding: 9px; margin-bottom: 16px; }
   .g-rule { height: 1.5px; background: #B08A3C; margin: 18px 0 3px; }
   .g-rule2 { height: 1px; background: #D8C8A0; margin-bottom: 22px; }
   .g-closed { text-align: center; background: rgba(181,69,58,.1); color: #A5342E; font-size: 13px; padding: 9px; border-radius: 6px; margin-bottom: 18px; }
@@ -358,7 +359,7 @@ async function fetchSnacks() {
 }
 
 /* バージョン表示（更新確認用）。コードを変えたらこの値を上げる → 右上の表示で最新版か判別できる */
-const APP_VERSION = "v4.0";
+const APP_VERSION = "v4.1";
 document.getElementById("ver").textContent = APP_VERSION;
 
 /* ---------- 選択肢の定義 ---------- */
@@ -763,9 +764,10 @@ function renderEvents() {
 /* ---------- 開店フォーム（作成） ---------- */
 let eventForm = null;
 function openEventForm() {
-  eventForm = { event_at: "", note: "", drinks: [], itemIds: [] };
+  eventForm = { event_at: "", note: "", drinks: [], itemIds: [], maxPerGuest: 0 };
   showScreen("eventForm");
 }
+function setEventMax(n) { syncEventForm(); eventForm.maxPerGuest = n; renderEventForm(); }
 function syncEventForm() {
   const at = document.getElementById("ev-at");
   const note = document.getElementById("ev-note");
@@ -802,7 +804,7 @@ function renderEventForm() {
   const f = eventForm;
   let html = `<div class="screen-head"><button class="back-btn" onclick="goEvents()" aria-label="戻る"><i class="ti ti-chevron-left" aria-hidden="true"></i></button><h2>開店の準備</h2></div>`;
   html += `<div class="field"><label>開催日時</label>
-    <input type="datetime-local" id="ev-at" value="${f.event_at}" /></div>`;
+    <input type="datetime-local" id="ev-at" step="300" value="${f.event_at}" /></div>`;
   html += `<div class="field"><label>ひとこと(任意)</label>
     <textarea id="ev-note" placeholder="例:今夜20時から軽くやりましょう">${esc(f.note)}</textarea></div>`;
   html += `<div class="field"><label>用意してるお酒</label><div class="chip-group">`;
@@ -817,6 +819,12 @@ function renderEventForm() {
     html += `<div class="grid">` + db.snacks.slice().reverse().map(pickTile).join("") + `</div>`;
   }
   html += `</div>`;
+  html += `<div class="field"><label>1人あたりの注文上限</label><div class="chip-group">`;
+  [0, 1, 2, 3, 4, 5].forEach(n => {
+    html += `<div class="chip ${f.maxPerGuest === n ? "active" : ""}" onclick="setEventMax(${n})">${n === 0 ? "無制限" : n + "品"}</div>`;
+  });
+  html += `</div></div>`;
+
   html += `<div class="btn-row">
     <button class="btn btn-secondary" onclick="goEvents()">やめる</button>
     <button class="btn btn-primary" onclick="submitEvent()">開店する</button>
@@ -842,7 +850,7 @@ async function submitEvent() {
     if (!f.drinks.length) { toast("用意するお酒を1つ以上選んでください"); return; }
     if (!f.itemIds.length) { toast("メニューを1つ以上選んでください"); return; }
     const { data: ev, error: e1 } = await sb.from("events")
-      .insert({ event_at: localInputToISO(f.event_at), note: (f.note || "").trim(), drinks: f.drinks, is_open: true })
+      .insert({ event_at: localInputToISO(f.event_at), note: (f.note || "").trim(), drinks: f.drinks, is_open: true, max_per_guest: f.maxPerGuest || 0 })
       .select().single();
     if (e1) { console.error(e1); toast("開店に失敗しました"); return; }
     const items = f.itemIds
@@ -878,6 +886,7 @@ function renderEventDetail() {
     <div class="evt-when">${fmtEventDate(ev.event_at)} <span class="event-badge ${ev.is_open ? "open" : "closed"}">${ev.is_open ? "開店中" : "閉店"}</span></div>
     ${ev.note ? `<div class="evt-note">${esc(ev.note)}</div>` : ""}
     ${(ev.drinks && ev.drinks.length) ? `<div class="evt-drinks">${ev.drinks.map(k => DRINKS[k] ? `<span class="tag">${DRINKS[k]}</span>` : "").join("")}</div>` : ""}
+    ${(ev.max_per_guest && ev.max_per_guest > 0) ? `<div class="evt-note">注文上限：お一人 ${ev.max_per_guest}品まで</div>` : ""}
   </div>`;
   html += `<div class="evt-share">
     <div class="evt-share-label">共有リンク</div>
@@ -1004,6 +1013,9 @@ async function toggleOrder(itemId) {
     const { error } = await sb.from("orders").delete().eq("id", mine.id);
     if (error) { console.error(error); toast("取り消せませんでした"); return; }
   } else {
+    const limit = guestData.event.max_per_guest || 0;
+    const myCount = guestData.orders.filter(o => o.guest_id === myGuestId).length;
+    if (limit > 0 && myCount >= limit) { toast(`ご注文はお一人 ${limit}品 までです`); return; }
     const { error } = await sb.from("orders").insert({ event_id: guestEventId, item_id: itemId, guest_name: name });
     if (error) { console.error(error); toast("注文できませんでした"); return; }
   }
@@ -1026,6 +1038,11 @@ function renderGuest() {
   }
   html += `<div class="g-namebox"><label>お名前</label>
     <input type="text" id="g-name-input" placeholder="ここに入力" value="${esc(guestName)}" autocomplete="off" autocorrect="off" oninput="onGuestName(this.value)" /></div>`;
+  const limit = guestData.event.max_per_guest || 0;
+  if (limit > 0 && !closed) {
+    const myCount = orders.filter(o => o.guest_id === myGuestId).length;
+    html += `<div class="g-limit">ご注文はお一人 ${limit}品 まで（あと ${Math.max(0, limit - myCount)}品）</div>`;
+  }
   if (!items.length) html += `<div class="g-empty">まだメニューがありません。</div>`;
   items.forEach(it => {
     const ords = orders.filter(o => o.item_id === it.id);
